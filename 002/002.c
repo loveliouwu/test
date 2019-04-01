@@ -13,3 +13,34 @@
 
 
 */
+
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     struct ListNode *next;
+ * };
+ */
+struct ListNode* addTwoNumbers(struct ListNode* l1, struct ListNode* l2) {
+    struct ListNode *node= (struct ListNode*)malloc(sizeof(struct ListNode));
+    struct ListNode *head = node;
+    int val1=0,val2=0,count=0;
+    while(l1!=NULL&&l2!=NULL&&count!=0)
+    {
+        if(node!=head)
+        {
+            node->next = (struct ListNode*)malloc(sizeof(struct ListNode));
+            node = node->next;
+        }
+	
+        val1 = (l1 == NULL)? 0 : l1->val;
+        val2 = (l2 == NULL)? 0 : l2->val;
+        count = (val1 + val2) % 10;
+        node->val = (val1 + val2) / 10 + count;
+    }
+    return head;
+}
+
+
+
+
