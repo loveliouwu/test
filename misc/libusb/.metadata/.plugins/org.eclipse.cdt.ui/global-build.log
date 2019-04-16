@@ -1,0 +1,68 @@
+
+**** Build of configuration Debug for project libusb ****
+
+make all 
+Building file: ../src/main.c
+Invoking: GCC C Compiler
+gcc -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"src/main.d" -MT"src/main.d" -o "src/main.o" "../src/main.c"
+../src/main.c: In function ‘print_endpoint’:
+../src/main.c:57:13: warning: unused variable ‘ret’ [-Wunused-variable]
+      int i, ret;
+             ^
+../src/main.c:57:10: warning: unused variable ‘i’ [-Wunused-variable]
+      int i, ret;
+          ^
+../src/main.c: In function ‘print_descriptor’:
+../src/main.c:146:15: warning: unused variable ‘i’ [-Wunused-variable]
+      int ret, i;
+               ^
+../src/main.c: In function ‘main’:
+../src/main.c:236:2: warning: implicit declaration of function ‘memset’ [-Wimplicit-function-declaration]
+  memset(buf,1,4096);
+  ^
+../src/main.c:236:2: warning: incompatible implicit declaration of built-in function ‘memset’ [enabled by default]
+../src/main.c:251:4: warning: pointer targets in passing argument 3 of ‘libusb_bulk_transfer’ differ in signedness [-Wpointer-sign]
+    ) ;
+Finished building: ../src/main.c
+    ^
+In file included from ../src/main.c:3:0:
+ 
+/usr/include/libusb-1.0/libusb.h:1704:17: note: expected ‘unsigned char *’ but argument is of type ‘char *’
+ int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle *dev_handle,
+                 ^
+Building target: libusb
+../src/main.c:266:3: warning: pointer targets in passing argument 3 of ‘libusb_bulk_transfer’ differ in signedness [-Wpointer-sign]
+   ) ;
+Invoking: GCC C Linker
+gcc  -o "libusb"  ./src/main.o   -lusb-1.0 -ludev
+   ^
+In file included from ../src/main.c:3:0:
+/usr/include/libusb-1.0/libusb.h:1704:17: note: expected ‘unsigned char *’ but argument is of type ‘char *’
+ int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle *dev_handle,
+                 ^
+../src/main.c:288:3: warning: pointer targets in passing argument 3 of ‘libusb_interrupt_transfer’ differ in signedness [-Wpointer-sign]
+   ret = libusb_interrupt_transfer(dev_handle,0x81, buf, 64,&len, 12);
+   ^
+In file included from ../src/main.c:3:0:
+/usr/include/libusb-1.0/libusb.h:1708:17: note: expected ‘unsigned char *’ but argument is of type ‘char *’
+ int LIBUSB_CALL libusb_interrupt_transfer(libusb_device_handle *dev_handle,
+                 ^
+../src/main.c:308:4: warning: pointer targets in passing argument 3 of ‘libusb_bulk_transfer’ differ in signedness [-Wpointer-sign]
+    );
+Finished building target: libusb
+    ^
+In file included from ../src/main.c:3:0:
+/usr/include/libusb-1.0/libusb.h:1704:17: note: expected ‘unsigned char *’ but argument is of type ‘char *’
+ int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle *dev_handle,
+                 ^
+../src/main.c: At top level:
+../src/main.c:28:12: warning: ‘device_status’ defined but not used [-Wunused-function]
+ static int device_status(libusb_device_handle *hd)
+            ^
+../src/main.c: In function ‘print_descriptor’:
+../src/main.c:156:1: warning: control reaches end of non-void function [-Wreturn-type]
+ }
+ ^
+ 
+
+**** Build Finished ****
