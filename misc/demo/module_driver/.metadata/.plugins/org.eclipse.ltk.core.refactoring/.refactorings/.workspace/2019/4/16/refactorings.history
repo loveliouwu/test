@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Delete resource &apos;usb_driver&apos;" deleteContents="false" description="Delete resource &apos;usb_driver&apos;" element1="/usb_driver" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1555737423893"/>
+</session>

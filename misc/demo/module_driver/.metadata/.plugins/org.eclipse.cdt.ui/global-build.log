@@ -1,0 +1,23 @@
+
+**** Build of configuration Debug for project netlink_test ****
+
+make all 
+Building file: ../src/netlink_transfer.c
+Invoking: GCC C Compiler
+gcc -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"src/netlink_transfer.d" -MT"src/netlink_transfer.d" -o "src/netlink_transfer.o" "../src/netlink_transfer.c"
+Finished building: ../src/netlink_transfer.c
+ 
+Building target: netlink_test
+Invoking: GCC C Linker
+gcc -L/usr/src/linux-headers-4.4.0-143-generic -o "netlink_test"  ./src/netlink_transfer.o   
+Finished building target: netlink_test
+ 
+
+**** Build Finished ****
+
+**** Build of configuration Debug for project netlink_test ****
+
+make all 
+make: 没有什么可以做的为 `all'。
+
+**** Build Finished ****

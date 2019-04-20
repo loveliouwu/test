@@ -1,0 +1,21 @@
+#include<linux/netlink.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include <config.h>
+#include <module.h>
+#include <linux/netlink.h>
+#include <linux/sched.h>
+#include <sock.h>
+#include <proc_fs.h>
+
+
+struct sock *netlink_sock = NULL;//netlink的sock数据接口
+
+
+
+int netlink_init(unsigned int uint)
+{
+	int ret = -1;
+	netlink_sock = netlink_kernel_create(NETLINK_GENERIC, 0, recv_handler, THIS_MODULE)
+}
+
