@@ -15,6 +15,13 @@
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <linux/mutex.h>
+#include <linux/cdev.h>
+#include <linux/io.h>
+#include <linux/ioctl.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/semaphore.h>
+#include <linux/kdev_t.h>
 
 //#include"pe100_usb_driver.h"
 #include"netlink_transfer.h"
@@ -29,64 +36,231 @@
 #define MIN(a,b) ((a <= b ) ? a : b)
 
 
+/*字符设备*/
+#define MAX_SSISION_COUNT	(8)	//最大回话数量
+#define CF_DRIVER_MAJOR		(0)
+#define MEMDEV_NUM		(1)
+#define CF_IOCTL_MAGIC_W	'W'
+#define CF_IOCTL_MAGIC_R	'R'
+#define CF_IOCTL_MAGIC_WR	'G'
+#define CMD_GET_SID		_IOW(CF_IOCTL_MAGIC_WR, 0, unsigned long)
+#define CMD_RELEASE_SID		_IOW(CF_IOCTL_MAGIC_WR, 1, unsigned long)
+#define CMD_GET_KERNEL_INFO	_IOW(CF_IOCTL_MAGIC_WR, 2, unsigned long)
+char cdev_driver_name[] = "cf_dev";
+static struct cdev g_cdev;
+static struct class *g_dev_class;
+static struct device *g_dev_device;
+static int g_mem_major = CF_DRIVER_MAJOR;
+
+
+/*会话标记*/
+
+static spinlock_t open_spinlock; 
+struct semaphore ioctl_sem;	//用于互斥分配会话编号
+unsigned int g_open_count = 0;
+unsigned char g_ssision_id_flag[MAX_SSISION_COUNT];
+unsigned int s_id_value = 0;
+g_ssision_struct g_ssision_id_str[MAX_SSISION_COUNT];
+
 
 
 
 unsigned int recv_len = MAX_MSGSIZE;
 struct usb_host_interface *iface_desc = NULL;
 struct usb_endpoint_descriptor *endpoint = NULL;
+hash_packet_st hash_packet[8];//保存哈希计算时的74字节数据
 
 
 
-
-
+//unsigned int cf_suspend_flag = FALSE;//睡眠唤醒标记
 struct usb_skel *dev;    
 
 
-/*向应用层发送处理数据的异常状态信息*/
-int send_netlink_status(nl_packet_st *data_info, unsigned int status)
+/*向应用层发送处理数据的异常状态信息
+data_info[in]: 	数据信息
+status[in]:	异常状态类型
+flag[in]:	标记异常状态来源 TASK_STATUS   NETLINK_STATUS
+返回值：成功返回发送长度，失败返回-1
+*/
+int send_netlink_status(nl_packet_st *data_info, unsigned int status, unsigned int flag)
 {
 	int ret = -1;
+	usb_packet_st *pheader = NULL;
 	if(NULL == data_info)
 	{
 		return ret;
 	}
+
 	data_info->flag = SEND_DATA_FLAG;
 	data_info->task_status = status;
-	ret = netlink_send((unsigned char *)data_info, sizeof(nl_packet_st),data_info->task_pid);
+
+	if(flag == TASK_STATUS)
+	{
+		pheader = (usb_packet_st *)(data_info + 1);
+		pheader->packet_status = status;
+		ret = netlink_send((unsigned char *)data_info, sizeof(nl_packet_st) + sizeof(usb_packet_st), data_info->task_pid);
+	}
+	else
+	{
+		ret = netlink_send((unsigned char *)data_info, sizeof(nl_packet_st), data_info->task_pid);
+	}
+
+	
 	return ret;
 }
 
 
-/*NetLink回调函数中对数据解析封USB包*/
+/*检查配置启动、停止*/
+int card_configuration_check(nl_packet_st * task_info, unsigned int *config_flag)
+{
+	int ret = SDR_OK;
+	card_head *pheader = (card_head *)(task_info +1);//跳过task_info部分
+	if(task_info->task_cmd != CARD_CONFIG)
+	{
+		if(*config_flag == CONFIG_START)
+		{
+			send_netlink_status(task_info, SDR_OK, TASK_STATUS);
+			ret = SDR_BEINGCONFIGURED;
+		}
+	}
+	else
+	{
+		switch(pheader->packet_cmd)
+		{
+			case CARD_CONFIGURATION_START:
+				DRIVER_INFO("Config start!\n");
+				if(*config_flag == CONFIG_START)
+				{
+					send_netlink_status(task_info, SDR_OK, TASK_STATUS);
+					ret = SDR_BEINGCONFIGURED;
+				}
+				else
+				{
+					*config_flag = CONFIG_START;
+					ret = -1;
+				}
+				DRIVER_INFO("card_config_start flag:%d\n",card_config_start_flag);
+				break;
+			case CARD_CONFIGURATION_STOP:
+				DRIVER_INFO("Config stop!\n");
+				*config_flag = CONFIG_STOP;
+				send_netlink_status(task_info, SDR_OK, TASK_STATUS);
+				DRIVER_INFO("card_config_start flag:%d\n",card_config_start_flag);
+				ret = 1;
+				break;
+			default:
+				break;
+		}
+	}
+	return ret;
+}
+
+
+
+/*NetLink回调函数中对数据解析封USB包
+收到的包组成：
+
+*/
 int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 {
 	unsigned int recv_data_len = 0;
-	nl_packet_st * nl_recv_data_header = NULL;
-
+	nl_packet_st * nl_data_header = NULL;
+	usb_packet_st * usb_data_header = NULL;
+	int ret = 0;
 	recv_data_len = ((nl_packet_st *)data_addr)->data_len;
-	nl_recv_data_header = kmalloc(recv_data_len + sizeof(nl_packet_st), GFP_KERNEL);
-	if(nl_recv_data_header == NULL)
+	nl_data_header = kmalloc(recv_data_len + sizeof(nl_packet_st), GFP_KERNEL);	//存放netlink收到的数据
+	if(nl_data_header == NULL)
 	{
-		DRIVER_ERROR("Malloc nl_recv_data_header failed..\n");
+		DRIVER_ERROR("Malloc nl_data_header failed..\n");
 		return -1;
 	}
 	else
 	{
-		memset(nl_recv_data_header, 0, recv_data_len + sizeof(nl_packet_st));
-		nl_recv_data_header->task_pid = nlmsg_pid;
-		memcpy(nl_recv_data_header, data_addr, recv_data_len + sizeof(nl_packet_st));
-		DRIVER_INFO("recv netlink data ssid:%d, cmd:%d\n",nlmsg_pid, nl_recv_data_header->task_cmd);
+		memset(nl_data_header, 0, recv_data_len + sizeof(nl_packet_st));
+		nl_data_header->task_pid = nlmsg_pid;
+		memcpy(nl_data_header, data_addr, recv_data_len + sizeof(nl_packet_st));
+		DRIVER_INFO("recv netlink data ssid:%d, cmd:%d\n",nlmsg_pid, nl_data_header->task_cmd);
+	}
+
+	ret = card_configuration_check(nl_data_header, &card_config_start_flag);//检查是否处于配置状态
+	if(ret != SDR_OK)	
+	{
+		if(ret > 0)
+		{
+			kfree(nl_data_header);
+			nl_data_header = NULL;
+		}
+		return -1;
 	}
 	
-	if(card_config_start_flag == CONFIG_START)
+	switch(nl_data_header->task_type)//不同的命令封包大小和操作不同   需要申请空间
 	{
-		if(nl_recv_data_header->task_type != TYPE_CPU)
-		{
-			send_netlink_status(nl_recv_data_header, SDR_BEINGCONFIGURED);
-			return -1;
-		}
-	}
+		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
+				//card_head部分是原pe200中IC卡用到的数据，现在保留不用
+			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st) - sizeof(card_head), GFP_KERNEL);//去掉card_head
+			if(usb_data_header == NULL)
+			{
+				DRIVER_ERROR("Malloc usb_data_header failed..\n");
+				kfree(nl_data_header);
+				nl_data_header = NULL;
+				return -1;
+			}
+			memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st) - sizeof(card_head));
+			memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), recv_data_len);
+			usb_data_header->packet_len = nl_data_header->data_len - sizeof(card_head);	//USB包数据部分的大小
+			usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
+			usb_data_header->packet_status = SDR_OK;		//执行的状态
+			break;
+
+		case TYPE_SYM://sym计算  encrypt decrypt calculate_mac 三个接口用到
+			/*
+				大于8*1024字节的数据包为大包，需要多次传输，小包的info->flag为 TASK_INFO_FLAG
+				如果是大包，应用需要根据接收的任务头中 info->flag == REQUEST_INFO_FLAG 来进行下一个包的传输
+				所以驱动要对info->flag进行填充，
+			*/
+
+		case TYPE_ASYM:
+			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//去掉card_head
+			if(usb_data_header == NULL)
+			{
+				DRIVER_ERROR("Malloc usb_data_header failed..\n");
+				kfree(nl_data_header);
+				nl_data_header = NULL;
+				return -1;
+			}
+			memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st));
+			memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+			usb_data_header->packet_len = nl_data_header->data_len;	//USB包数据部分的大小
+			usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
+			usb_data_header->packet_status = SDR_OK;		//执行的状态
+			break;
+
+		case TYPE_HASH://包含init update 和 final 
+			/*
+				init阶段会收到一个74字节的中间数据  需要保存用于update阶段使用
+				update阶段发送数据需要带上init阶段的74字节中间数据
+			*/
+			switch(nl_data_header->task_cmd)
+			{
+				/*
+				case HASH_INIT://
+					break;
+				case HASP_UPDATE://
+					break;
+				*/
+			}
+			
+		/* 管理软件发送的包都是cpu任务
+		case CARD_CONFIG:
+			break;
+		*/
+		default:
+			
+			break;
+	
+			
+
+	}	
 	
 
 
@@ -362,17 +536,199 @@ int usb_plug_device(struct usb_interface *interface, const struct usb_device_id 
 	return 0;
 }
 
+long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	unsigned int trans_id = 0;
+	unsigned int loop_value = 0;
+	//	kernel_info info;
+	int i = 0;
+	//int j = 0;
+	int ret = SDR_UNKNOWERR;
+	if(down_interruptible(&ioctl_sem))
+	{
+		return ret;
+	}
+	DRIVER_INFO("ioctl cmd:%d\n",cmd);
+	switch(cmd)
+	{
+		case CMD_GET_SID:
+			if(copy_from_user((unsigned char *)&trans_id, (char*)arg, sizeof(unsigned int)))
+			{
+				DRIVER_ERROR("Failed copy from user. \n");
+				ret = SDR_OPENSSISION;
+				break;
+			}
+			for(i = 0; i < MAX_SSISION_COUNT; i++)
+			{
+				loop_value = (s_id_value + i)%MAX_SSISION_COUNT;
+				if(g_ssision_id_str[loop_value].ssision_id_flag == 0)
+				{
+					g_ssision_id_str[loop_value].ssision_id_flag = 1;
+					g_ssision_id_str[loop_value].ssision_id = loop_value + 1;
+					trans_id = loop_value + 1;
+					filp->private_data = (void*)(&g_ssision_id_str[loop_value]);
+					s_id_value = (s_id_value + 1)%MAX_SSISION_COUNT;
+					break;
+				}
+			}
+			if(i == MAX_SSISION_COUNT)
+			{
+				ret = SDR_OPENSSISION;
+				DRIVER_ERROR("loop too much.\n\n");
+				break;
+			}
+			if(copy_to_user((char *)arg, (unsigned char *)&trans_id, sizeof(unsigned int)))
+			{
+				DRIVER_ERROR("Failed copy from user.\n\n");
+				ret = SDR_OPENSSISION;
+				break;
+			}
+			DRIVER_INFO("create ss_sid:%d\n",trans_id);
+			ret = SDR_OK;
+			break;
 
+
+		case CMD_RELEASE_SID:
+			if(copy_from_user(&trans_id, (unsigned char *)arg, sizeof(unsigned int)))
+			{
+				DRIVER_ERROR("Failed copy from user.\n\n");
+				ret = SDR_UNKNOWERR;
+				break;
+			}
+			ret = SDR_OK;
+			break;
+		case CMD_GET_KERNEL_INFO:
+			DRIVER_INFO("Get kernel info\n");
+			break;
+		default:
+			DRIVER_INFO("command error !!\n");
+			break;
+		
+	}
+	up(&ioctl_sem);//释放信号量
+	return ret;
+}
+
+/*字符设备打开时资源申请*/
+int usb_open(struct inode* inode, struct file* filp)
+{
+	DRIVER_INFO("device open!\n");
+	spin_lock(&open_spinlock);
+	g_open_count += 1;
+	spin_lock(&open_spinlock);
+	return 0;
+}
+
+/*字符设备关闭时的资源释放*/
+int usb_release(struct inode * inode, struct file * filp)
+{
+	g_ssision_struct *ss_str = NULL;
+	DRIVER_INFO("device release! \n");
+	spin_lock(&open_spinlock);
+	g_open_count -= 1;
+	spin_unlock(&open_spinlock);
+	if(filp->private_data != NULL)
+	{
+		if(down_interruptible(&ioctl_sem))
+		{
+			return -1;
+		}
+		ss_str = (g_ssision_struct *)(filp->private_data);
+		if(ss_str->ssision_id_flag == 1)
+		{
+			DRIVER_INFO("ss_id:%d\n", ss_str->ssision_id);
+			ss_str->ssision_id_flag = 0;
+			ss_str->ssision_id = 0;
+		}
+		up(&ioctl_sem);
+	}
+	return 0;
+}
+
+struct file_operations cf_usb_init = 
+{
+	open:		usb_open,
+	release:	usb_release,
+	unlocked_ioctl:	usb_ioctl
+};
+
+
+/*完成字符设备的注册与设备节点的动态申请*/
+static int driver_cdev_init(unsigned int major)
+{
+	int result = -1;
+	int err;
+	dev_t devno;
+	if(major)
+	{
+		result = register_chrdev_region(devno, MEMDEV_NUM, cdev_driver_name);
+	}
+	else
+	{
+		result = alloc_chrdev_region(&devno, 0, MEMDEV_NUM, cdev_driver_name);
+		major = MAJOR(devno);
+		DRIVER_INFO("major dev num:%d\n", major);
+	}
+	if(result < 0)
+	{
+		DRIVER_ERROR("can't get major dev_num:%d\n", major);
+		return result;
+	}
+	/*注册设备驱动*/
+	cdev_init(&g_cdev, &cf_usb_init);/*初始化cdev结构*/
+	g_cdev.owner = THIS_MODULE;
+	
+	err = cdev_add(&g_cdev, MKDEV(major, 0), MEMDEV_NUM); //如果有N个设备就要添加N个设备号
+	if(err)
+	{
+		DRIVER_ERROR("add cdev failed, err is %d\n",err);
+		result = err;
+		goto free_chrdev_region;
+	}
+
+	/*自动注册设备节点*/
+	g_dev_class = class_create(THIS_MODULE, cdev_driver_name); //创建一个类
+	if(IS_ERR(g_dev_class))
+	{
+		result = PTR_ERR(cdev_driver_name);//创建一个类
+		goto free_cdev_add;
+	}
+	g_dev_device = device_create(g_dev_class, NULL, MKDEV(major, 0), NULL, cdev_driver_name);
+	if(IS_ERR(g_dev_device))
+	{
+		result = PTR_ERR(g_dev_device);
+		goto free_class_create;
+	}
+	result = 0;
+	return result;
+	free_class_create:
+		class_destroy(g_dev_class);
+	free_cdev_add:
+		cdev_del(&g_cdev);
+	free_chrdev_region:
+		unregister_chrdev_region(MKDEV(major, 0), MEMDEV_NUM);
+		return result;
+}
+
+/*完成字符设备的卸载与设备节点的销毁*/
+static void driver_cdev_exit(unsigned int major)
+{
+	device_destroy(g_dev_class, MKDEV(major, 0));
+	class_destroy(g_dev_class);
+	cdev_del(&g_cdev);
+	unregister_chrdev_region(MKDEV(major, 0), MEMDEV_NUM);	
+}
 
 
 static int probe_usb(struct usb_interface *interface, const struct usb_device_id *id){
 
-	netlink_init(NETLINK_TEST);
+	spin_lock_init(&open_spinlock);//初始化锁、信号量
+	sema_init(&ioctl_sem, 1);
 
-	//unsigned char *data = (unsigned char *)kmalloc(1024, GFP_USER);	
-	//kfree(data);
+	netlink_init(NETLINK_TEST);//初始化Netlink
+	driver_cdev_init(g_mem_major);//初始化字符设备
 
-	
+
 	
 	unsigned char data[1024*8+512];
 	memset(data, 6, 1024*8+512);
@@ -390,9 +746,10 @@ static int probe_usb(struct usb_interface *interface, const struct usb_device_id
 
 static void disconnect_usb(struct usb_interface *interface){
 
-
-	//netlink_exit();
-
+	driver_cdev_exit(g_mem_major);
+	DRIVER_INFO("cdev_exit success\n");
+	netlink_exit();
+	DRIVER_INFO("netlink_exit success\n");
 /*
 	if(dev->bulk_in_buffer!=NULL)
 		kfree(dev->bulk_in_buffer);
@@ -406,8 +763,22 @@ static void disconnect_usb(struct usb_interface *interface){
 
 }
 
+/*
+//睡眠唤醒
+static int usb_suspend(struct usb_interface *intf, pm_message_tmessage)
+{
+	DRIVER_INFO("dev suspend\n");
+	cf_suspend_flag = TRUE;
+	return 0;
+}
 
-
+static int usb_resume(struct pci_dev *pci)
+{
+	DRIVER_INFO("dev resume\n");
+	cf_suspend_flag = FALSE;
+	return 0;
+}
+*/
 static struct usb_device_id usb_soc_table[] =
 
 {
@@ -425,6 +796,8 @@ static struct usb_driver usb_driver =
 	.id_table = usb_soc_table,
 	.probe = probe_usb,
 	.disconnect = disconnect_usb,
+	//.suspend = usb_suspend,
+	//.resume = usb_resume,
 };
 
 
