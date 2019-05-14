@@ -11,9 +11,9 @@
 #define TRUE 		(1)
 #define FALSE 		(0)
 
-
-#define MAX_MSGSIZE 	512
-#define MAX_BUFFER_SIZE 1024*8+512
+#define MAX_SEND_DATA_LEN			8*1024 //SDF大包的最大数据长度
+#define MAX_MSGSIZE 				512
+#define MAX_BUFFER_SIZE 			1024*8+512 //驱动申请的buffer大小
 
 /*临时声明*/
 #define SDR_BEINGCONFIGURED 	0x00000022 //正在配置过程中
@@ -26,6 +26,18 @@
 #define CARD_CONFIGURATION_START 0xc0
 #define CARD_CONFIGURATION_STOP 0xc1
 
+#define IV_LENGTH		(16)
+typedef struct symalg_cipher_st
+{
+	unsigned int key_handle;		//密钥句柄
+	unsigned int alg_id;			//算法标识
+	unsigned int data_len;			//加解密数据总长度
+	unsigned char IV[IV_LENGTH];	//IV数据
+}symalg_cipher;
+/*临时声明结束*/
+
+
+
 
 
 /*会话 会话对应的存放地址应该是 g_ssision_struct[pid-1]*/
@@ -33,7 +45,14 @@ typedef struct g_ssision_struct_st
 {
 	unsigned int ssision_id_flag;
 	unsigned int ssision_id;
+
+
 	unsigned char hash_misc_data[75];//保存hash运算中返回的７４字节中间数据
+	
+	//在申请会话的时候初始化三个用于sym任务的全局变量
+	unsigned char sym_flag;//标记一个sym任务 0表示任务未开始 1表示任务进行中
+	unsigned int sym_data_len;//保存sym大包时任务的总长度
+	unsigned int sym_offset;//保存sym大包时已发送的总长度,当offset和任务总长度相同时，表明该次sym任务完成，清零这两个变量
 }g_ssision_struct;
 
 

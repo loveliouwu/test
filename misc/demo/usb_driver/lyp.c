@@ -165,9 +165,12 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	unsigned int recv_data_len = 0;
 	nl_packet_st * nl_data_header = NULL;
 	usb_packet_st * usb_data_header = NULL;
+
+
 	int ret = 0;
-	recv_data_len = ((nl_packet_st *)data_addr)->data_len;
+	recv_data_len = ((nl_packet_st *)data_addr)->data_len;//当前包数据长度
 	nl_data_header = kmalloc(recv_data_len + sizeof(nl_packet_st), GFP_KERNEL);	//存放netlink收到的数据
+
 	if(nl_data_header == NULL)
 	{
 		DRIVER_ERROR("Malloc nl_data_header failed..\n");
@@ -177,7 +180,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	{
 		memset(nl_data_header, 0, recv_data_len + sizeof(nl_packet_st));
 		nl_data_header->task_pid = nlmsg_pid;
-		memcpy(nl_data_header, data_addr, recv_data_len + sizeof(nl_packet_st));
+		memcpy(nl_data_header, data_addr, recv_data_len + sizeof(nl_packet_st));//复制包数据到申请的空间
 		DRIVER_INFO("recv netlink data ssid:%d, cmd:%d\n",nlmsg_pid, nl_data_header->task_cmd);
 	}
 
@@ -192,7 +195,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 		return -1;
 	}
 	
-	switch(nl_data_header->task_type)//不同的命令封包大小和操作不同   需要申请空间
+	switch(nl_data_header->task_type)//不同的命令封包大小和操作不同   注意申请和释放空间
 	{
 		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
 				//card_head部分是原pe200中IC卡用到的数据，现在保留不用
@@ -206,20 +209,80 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			}
 			memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st) - sizeof(card_head));
 			memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), recv_data_len);
-			usb_data_header->packet_len = nl_data_header->data_len - sizeof(card_head);	//USB包数据部分的大小
+			usb_data_header->packet_len = nl_data_header->data_len - sizeof(card_head);	//驱动去掉了一个card_head部分，需要调整发送长度
 			usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
 			usb_data_header->packet_status = SDR_OK;		//执行的状态
 			break;
 
-		case TYPE_SYM://sym计算  encrypt decrypt calculate_mac 三个接口用到
+		case TYPE_SYM://sym计算  encrypt decrypt calculate_mac 三个接口用到  涉及到大包，需要请求数据
 			/*
-				大于8*1024字节的数据包为大包，需要多次传输，小包的info->flag为 TASK_INFO_FLAG
+				大包第一包时：recv_data_len = 【symalg_cipher】【data】 //data在SDF中限定为8k
+				大包后续包时：recv_data_len = 8k或者剩余字节
+				大于（8*1024-包头）字节的数据包为大包，需要多次传输，小包的info->flag为 TASK_INFO_FLAG
 				如果是大包，应用需要根据接收的任务头中 info->flag == REQUEST_INFO_FLAG 来进行下一个包的传输
 				所以驱动要对info->flag进行填充，
+				netlink收到的数据包格式为：【nl_packet_st】【symalg_cipher】【data】
 			*/
 
-		case TYPE_ASYM:
-			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//去掉card_head
+			if(((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len <= MAX_SEND_DATA_LEN)//任务长度小于最大包长度（8k）则为小包
+			{
+				usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//包头：【usb_packet_st】数据部分：【symalg_cipher】【data】
+				if(usb_data_header == NULL)
+				{
+					DRIVER_ERROR("Malloc usb_data_header failed..\n");
+					kfree(nl_data_header);
+					nl_data_header = NULL;
+					return -1;
+				}
+				usb_data_header->packet_cmd = nl_data_header->task_cmd;
+				usb_data_header->packet_len = nl_data_header->data_len;
+				usb_data_header->packet_status = nl_data_header->task_status;
+				memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+			}
+			else//大包
+			{
+				if(g_ssision_id_str[nlmsg_pid - 1].sym_flag == 0)//标记，该会话开始进行sym大包传输时设为1
+				{//发送的第一包：需要发送对称加解密数据 这里的recv_data_len = 【symalg_cipher】【data】
+					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = (symalg_cipher *)(nl_data_header + sizeof(nl_packet_st))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
+					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 1;
+					usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//【usb_packet_st】【symalg_cipher】【data】第一包需要发送symalg_cipher
+					if(usb_data_header == NULL)
+					{
+						DRIVER_ERROR("Malloc usb_data_header failed..\n");
+						kfree(nl_data_header);
+						nl_data_header = NULL;
+						g_ssision_id_str[nlmsg_pid - 1].sym_data_len = 0;
+						g_ssision_id_str[nlmsg_pid - 1].sym_flag = 0;
+						return -1;
+					}
+					usb_data_header->packet_cmd = nl_data_header->task_cmd;
+					usb_data_header->packet_len = nl_data_header->data_len;
+					usb_data_header->packet_status = nl_data_header->task_status;
+					memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分 
+					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len - sizeof(symalg_cipher);//记录发送的数据长度
+				}
+				else
+				{//发送后续包，只用发送数据 这里的recv_data_len = 【data】
+					usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//
+					if(usb_data_header == NULL)
+					{
+						DRIVER_ERROR("Malloc usb_data_header failed..\n");
+						kfree(nl_data_header);
+						nl_data_header = NULL;
+						g_ssision_id_str[nlmsg_pid - 1].sym_data_len = 0;
+						g_ssision_id_str[nlmsg_pid - 1].sym_flag = 0;
+						return -1;
+					}
+					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len;//更新已发送的数据长度
+					usb_data_header->packet_cmd = nl_data_header->task_cmd;
+					usb_data_header->packet_len = nl_data_header->data_len;
+					usb_data_header->packet_status = nl_data_header->task_status;
+					memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+				}
+			}
+			break;
+		case TYPE_ASYM: //非对称包组成【nl_packet_st】【data】   recv_data_len = 【data】  注：非对称任务没有大包
+			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);
 			if(usb_data_header == NULL)
 			{
 				DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -239,16 +302,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				init阶段会收到一个74字节的中间数据  需要保存用于update阶段使用
 				update阶段发送数据需要带上init阶段的74字节中间数据
 			*/
-			switch(nl_data_header->task_cmd)
-			{
-				/*
-				case HASH_INIT://
-					break;
-				case HASP_UPDATE://
-					break;
-				*/
-			}
-			
+			break;
 		/* 管理软件发送的包都是cpu任务
 		case CARD_CONFIG:
 			break;
@@ -277,12 +331,57 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	nl_data_header->task_cmd = usb_data_header->packet_cmd;
 	nl_data_header->task_status = usb_data_header->packet_status;
 	nl_data_header->data_len = usb_data_header->packet_len;
-	nl_data_header->flag = usb_data_header->head;
-	if(nl_data_header->data_len > 1024*8+512)
+
+	//复制接收到的数据到Netlink buffer   nl_data_header
+	switch(nl_data_header->task_type)
 	{
-		DRIVER_ERROR("recv usb data length too long !\n");
+		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
+				//card_head部分是原pe200中IC卡用到的数据，发送时需要填充
+			memcpy(nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->data_len);//填充数据
+			//填充card_head部分以适配SDF接口
+			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->status = usb_data_header->packet_status;
+			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->packet_len = usb_data_header->packet_len + sizeof(card_head);//pcard_head的packet_len为数据部分长度
+			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//驱动添加了一个pcard_head，需要补足长度
+			break;
+
+		case TYPE_SYM:
+			nl_data_header->task_cmd = usb_data_header->packet_cmd;
+			nl_data_header->data_len = usb_data_header->packet_len;
+			nl_data_header->task_status = usb_data_header->packet_status;
+			memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			//大包最后一包时：packet_len = 【symalg_cipher】【data】
+			//大包中间包时：packet_len = 【data】
+			//小包：packet_len = 【symalg_cipher】【data】
+			if(g_ssision_id_str[nlmsg_pid - 1].sym_flag == 1)//标记，该会话开始进行sym大包传输时设为1
+			{
+				if(g_ssision_id_str[nlmsg_pid - 1].sym_offset >= g_ssision_id_str[nlmsg_pid - 1].sym_data_len)//如果发送结束，则清除任务标记，这时返回的数据为最终的结果
+				{
+					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = 0;
+					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 0;
+					nl_data_header->flag = SEND_DATA_FLAG;//返回处理完的数据
+				}
+				else
+				{
+					nl_data_header->flag = REQ_DATA_FLAG;//设置请求数据
+				}
+			}
+			break;
+
+		case TYPE_ASYM:
+			nl_data_header->task_cmd = usb_data_header->packet_cmd;
+			nl_data_header->data_len = usb_data_header->packet_len;
+			nl_data_header->task_status = usb_data_header->packet_status;
+			memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			break;
+
+		case TYPE_HASH:
+
+			break;
+
+		case default:
+			break;
 	}
-	memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), nl_data_header->data_len);
+	
 	ret = netlink_send((unsigned char *)nl_data_header, sizeof(nl_packet_st) + nl_data_header->data_len, nl_data_header->task_pid);
 	
 
@@ -587,6 +686,10 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				loop_value = (s_id_value + i)%MAX_SSISION_COUNT;
 				if(g_ssision_id_str[loop_value].ssision_id_flag == 0)
 				{
+					g_ssision_id_str[loop_value].sym_flag = 0;//初始化该会话的sym全局变量
+					g_ssision_id_str[loop_value].sym_offset = 0;
+					g_ssision_id_str[loop_value].sym_data_len = 0;
+
 					g_ssision_id_str[loop_value].ssision_id_flag = 1;
 					g_ssision_id_str[loop_value].ssision_id = loop_value + 1;
 					trans_id = loop_value + 1;
