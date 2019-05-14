@@ -68,7 +68,6 @@ g_ssision_struct g_ssision_id_str[MAX_SSISION_COUNT];
 unsigned int recv_len = MAX_MSGSIZE;
 struct usb_host_interface *iface_desc = NULL;
 struct usb_endpoint_descriptor *endpoint = NULL;
-hash_packet_st hash_packet[8];//保存哈希计算时的74字节数据
 
 
 
@@ -119,7 +118,7 @@ int card_configuration_check(nl_packet_st * task_info, unsigned int *config_flag
 	{
 		if(*config_flag == CONFIG_START)
 		{
-			send_netlink_status(task_info, SDR_OK, TASK_STATUS);
+			send_netlink_status(task_info, SDR_BEINGCONFIGURED, TASK_STATUS);
 			ret = SDR_BEINGCONFIGURED;
 		}
 	}
@@ -257,11 +256,36 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 		default:
 			
 			break;
-	
-			
-
 	}	
 	
+	//封包之后调用usb发送等待接收
+	ret = usb_data_send((unsigned char*)usb_data_header, recv_data_len + sizeof(usb_packet_st));
+	if(ret != 0)
+	{
+		DRIVER_ERROR("send usb data ERROR\n");
+		send_netlink_status((nl_packet_st *)data_addr, SDR_OK, NETLINK_STATUS);
+		kfree(usb_data_header);
+	}
+	ret = usb_data_recv((unsigned char*)usb_data_header, recv_data_len + sizeof(usb_packet_st));
+	if(ret != 0)
+	{
+		DRIVER_ERROR("recv usb data ERROR\n");
+		send_netlink_status((nl_packet_st *)data_addr, SDR_OK, NETLINK_STATUS);
+		kfree(usb_data_header);
+	}
+
+	nl_data_header->task_cmd = usb_data_header->packet_cmd;
+	nl_data_header->task_status = usb_data_header->packet_status;
+	nl_data_header->data_len = usb_data_header->packet_len;
+	nl_data_header->flag = usb_data_header->head;
+	if(nl_data_header->data_len > 1024*8+512)
+	{
+		DRIVER_ERROR("recv usb data length too long !\n");
+	}
+	memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), nl_data_header->data_len);
+	ret = netlink_send((unsigned char *)nl_data_header, sizeof(nl_packet_st) + nl_data_header->data_len, nl_data_header->task_pid);
+	
+
 
 
 	return 0;

@@ -28,21 +28,13 @@
 
 
 
-/*会话*/
+/*会话 会话对应的存放地址应该是 g_ssision_struct[pid-1]*/
 typedef struct g_ssision_struct_st
 {
 	unsigned int ssision_id_flag;
 	unsigned int ssision_id;
+	unsigned char hash_misc_data[75];//保存hash运算中返回的７４字节中间数据
 }g_ssision_struct;
-
-
-
-/*hash计算74字节中间数据*/
-typedef struct hash_packet_struct
-{
-	unsigned int task_pid;  //任务的pid
-	unsigned int packet_date[75];//保存hash运算中返回的７４字节中间数据
-}hash_packet_st;
 
 
 
