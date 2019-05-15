@@ -199,7 +199,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	{
 		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
 				//card_head部分是原pe200中IC卡用到的数据，现在保留不用
-			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st) - sizeof(card_head), GFP_KERNEL);//去掉card_head
+			usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st) - sizeof(card_head), GFP_KERNEL);//去掉card_head
 			if(usb_data_header == NULL)
 			{
 				DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -218,7 +218,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			/*
 				大包第一包时：recv_data_len = 【symalg_cipher】【data】 //data在SDF中限定为8k
 				大包后续包时：recv_data_len = 8k或者剩余字节
-				大于（8*1024-包头）字节的数据包为大包，需要多次传输，小包的info->flag为 TASK_INFO_FLAG
+				对称算法包头中的data_len大于（8*1024）字节的数据包为大包，需要多次传输
 				如果是大包，应用需要根据接收的任务头中 info->flag == REQUEST_INFO_FLAG 来进行下一个包的传输
 				所以驱动要对info->flag进行填充，
 				netlink收到的数据包格式为：【nl_packet_st】【symalg_cipher】【data】
@@ -226,7 +226,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 			if(((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len <= MAX_SEND_DATA_LEN)//任务长度小于最大包长度（8k）则为小包
 			{
-				usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//包头：【usb_packet_st】数据部分：【symalg_cipher】【data】
+				usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//包头：【usb_packet_st】数据部分：【symalg_cipher】【data】
 				if(usb_data_header == NULL)
 				{
 					DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -245,7 +245,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				{//发送的第一包：需要发送对称加解密数据 这里的recv_data_len = 【symalg_cipher】【data】
 					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = (symalg_cipher *)(nl_data_header + sizeof(nl_packet_st))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
 					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 1;
-					usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//【usb_packet_st】【symalg_cipher】【data】第一包需要发送symalg_cipher
+					usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//【usb_packet_st】【symalg_cipher】【data】第一包需要发送symalg_cipher
 					if(usb_data_header == NULL)
 					{
 						DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -263,7 +263,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				}
 				else
 				{//发送后续包，只用发送数据 这里的recv_data_len = 【data】
-					usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//
+					usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//
 					if(usb_data_header == NULL)
 					{
 						DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -282,7 +282,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			}
 			break;
 		case TYPE_ASYM: //非对称包组成【nl_packet_st】【data】   recv_data_len = 【data】  注：非对称任务没有大包
-			usb_data_header = kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);
+			usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);
 			if(usb_data_header == NULL)
 			{
 				DRIVER_ERROR("Malloc usb_data_header failed..\n");
@@ -301,14 +301,76 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			/*
 				init阶段会收到一个74字节的中间数据  需要保存用于update阶段使用
 				update阶段发送数据需要带上init阶段的74字节中间数据
+				hash运算需要修改SDF封包，将数据封装的部分从原来的pe200驱动中移到SDF接口中，所以这里的驱动updata 和 final只需要将74字节填充，数据部分不做改动
 			*/
+			switch (nl_data_header->task_cmd)
+			{
+			case HASH_INIT:
+				usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);
+				if(usb_data_header == NULL)
+				{
+					DRIVER_ERROR("Malloc usb_data_header failed..\n");
+					kfree(nl_data_header);
+					nl_data_header = NULL;
+					return -1;
+				}
+				memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st));
+				memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				//如果是预处理
+				//if(((hash_para *)(nl_data_header + sizeof(nl_data_header)))->ID_length != 0 && (((hash_para *)(nl_data_header + sizeof(nl_data_header)))->alg_id == SGD_SM3))
+				usb_data_header->packet_len = nl_data_header->data_len;	//USB包数据部分的大小
+				usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
+				usb_data_header->packet_status = SDR_OK;		//执行的状态
+				memset(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 0, 74);//初始化等待接收加密模块返回的74字节数据
+				break;
+			
+			case HASH_UPDATE:
+				usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st) + 74, GFP_KERNEL);//加上74字节数据
+				if(usb_data_header == NULL)
+				{
+					DRIVER_ERROR("Malloc usb_data_header failed..\n");
+					kfree(nl_data_header);
+					nl_data_header = NULL;
+					return -1;
+				}
+				memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st) + 74);
+				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
+				usb_data_header->packet_len = nl_data_header->data_len;	//USB包数据部分的大小
+				usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
+				usb_data_header->packet_status = SDR_OK;		//执行的状态
+				break;
+				//如果是预处理
+				//if(((hash_para *)(nl_data_header + sizeof(nl_data_header)))->ID_length != 0 && (((hash_para *)(nl_data_header + sizeof(nl_data_header)))->alg_id == SGD_SM3))
+
+
+			case HASH_FINAL:
+				usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st) + 74, GFP_KERNEL);//加上74字节数据
+				if(usb_data_header == NULL)
+				{
+					DRIVER_ERROR("Malloc usb_data_header failed..\n");
+					kfree(nl_data_header);
+					nl_data_header = NULL;
+					return -1;
+				}
+				memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st) + 74);
+				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
+				usb_data_header->packet_len = nl_data_header->data_len;	//USB包数据部分的大小
+				usb_data_header->packet_cmd = nl_data_header->task_cmd;	//执行具体命令
+				usb_data_header->packet_status = SDR_OK;		//执行的状态
+				break;
+
+			default:
+				break;
+			}
 			break;
 		/* 管理软件发送的包都是cpu任务
 		case CARD_CONFIG:
 			break;
 		*/
 		default:
-			
+			DRIVER_ERROR("Wrong tasy_type: %d\n", nl_data_header->task_type);
 			break;
 	}	
 	
@@ -317,31 +379,35 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	if(ret != 0)
 	{
 		DRIVER_ERROR("send usb data ERROR\n");
-		send_netlink_status((nl_packet_st *)data_addr, SDR_OK, NETLINK_STATUS);
+		send_netlink_status((nl_packet_st *)data_addr, SDR_COMMFAIL, NETLINK_STATUS);
 		kfree(usb_data_header);
+		usb_data_header = NULL;
 	}
 	ret = usb_data_recv((unsigned char*)usb_data_header, recv_data_len + sizeof(usb_packet_st));
 	if(ret != 0)
 	{
 		DRIVER_ERROR("recv usb data ERROR\n");
-		send_netlink_status((nl_packet_st *)data_addr, SDR_OK, NETLINK_STATUS);
+		send_netlink_status((nl_packet_st *)data_addr, SDR_COMMFAIL, NETLINK_STATUS);
 		kfree(usb_data_header);
+		usb_data_header = NULL;
 	}
 
-	nl_data_header->task_cmd = usb_data_header->packet_cmd;
-	nl_data_header->task_status = usb_data_header->packet_status;
-	nl_data_header->data_len = usb_data_header->packet_len;
+	
 
 	//复制接收到的数据到Netlink buffer   nl_data_header
 	switch(nl_data_header->task_type)
 	{
-		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
+		case TYPE_CPU:
+				//usb收到的包格式为 【usb_packet_st】【data】
+				//CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
 				//card_head部分是原pe200中IC卡用到的数据，发送时需要填充
+			nl_data_header->task_cmd = usb_data_header->packet_cmd;
+			nl_data_header->task_status = usb_data_header->packet_status;
+			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//包头的data_len应该是后面数据部分的总长度，驱动添加了一个card_head故更新长度
 			memcpy(nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->data_len);//填充数据
 			//填充card_head部分以适配SDF接口
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->status = usb_data_header->packet_status;
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->packet_len = usb_data_header->packet_len + sizeof(card_head);//pcard_head的packet_len为数据部分长度
-			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//驱动添加了一个pcard_head，需要补足长度
 			break;
 
 		case TYPE_SYM:
@@ -375,18 +441,54 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			break;
 
 		case TYPE_HASH:
+			switch (nl_data_header->task_cmd)
+			{//暂时处理流程都一样，后续有修改再更新
+			case HASH_INIT:
+				nl_data_header->task_cmd = usb_data_header->packet_cmd;
+				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中
+				nl_data_header->task_status = usb_data_header->packet_status;
+				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
+				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				break;
+			
+			case HASH_UPDATE:
+				nl_data_header->task_cmd = usb_data_header->packet_cmd;
+				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中
+				nl_data_header->task_status = usb_data_header->packet_status;
+				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
+				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				break;
 
+			case HASH_FINAL:
+				nl_data_header->task_cmd = usb_data_header->packet_cmd;
+				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中，最终长度为哈希运算返回的结果长度
+				nl_data_header->task_status = usb_data_header->packet_status;
+				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保不保存无影响，下次SDF调用init时会清0
+				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				break;
+
+			default:
+				break;
+			}
 			break;
 
 		case default:
+			DRIVER_ERROR("Wrong tasy_type: %d\n", nl_data_header->task_type);
 			break;
 	}
 	
 	ret = netlink_send((unsigned char *)nl_data_header, sizeof(nl_packet_st) + nl_data_header->data_len, nl_data_header->task_pid);
-	
-
-
-
+	if(ret >= 0)
+	{
+		DRIVER_INFO("TASK SUCCESSED!\n")
+	}
+	//释放资源
+	if(nl_data_header != NULL)
+		kfree(nl_data_header);
+	if(usb_data_header != NULL)
+		kfree(usb_data_header);
+	nl_data_header = NULL;
+	usb_data_header = NULL;
 	return 0;
 }
 
@@ -877,15 +979,9 @@ static void disconnect_usb(struct usb_interface *interface){
 	DRIVER_INFO("cdev_exit success\n");
 	netlink_exit();
 	DRIVER_INFO("netlink_exit success\n");
-/*
-	if(dev->bulk_in_buffer!=NULL)
-		kfree(dev->bulk_in_buffer);
-	if(dev->bulk_out_buffer!=NULL)
-		kfree(dev->bulk_out_buffer);
 
 	if(dev!=NULL)
 		kzfree(dev);
-*/
 	printk("USB removed\n");
 
 }
@@ -955,8 +1051,7 @@ static void  __exit usb_exit(void)
 	if(dev->bulk_out_buffer!=NULL)
 		kfree(dev->bulk_out_buffer);
 */
-	if(dev!=NULL)
-		kzfree(dev);
+	
 
 	usb_deregister(&usb_driver);
 	printk("++++++USB_EXIT : I am in USB_EXIT function\n");

@@ -17,9 +17,10 @@
 
 /*临时声明*/
 #define SDR_BEINGCONFIGURED 	0x00000022 //正在配置过程中
-#define SDR_OK			0x00000000 //结果正确
-#define SDR_UNKNOWERR		0x00000001
-#define SDR_OPENSSISION		0x00000006
+#define SDR_OK					0x00000000 //结果正确
+#define SDR_UNKNOWERR			0x00000001
+#define SDR_OPENSSISION			0x00000006
+#define SDR_COMMFAIL			0x00000003//与设备通信失败
 
 #define CARD_CONFIG		0x33	//NETLINK_CMD
 
@@ -34,6 +35,29 @@ typedef struct symalg_cipher_st
 	unsigned int data_len;			//加解密数据总长度
 	unsigned char IV[IV_LENGTH];	//IV数据
 }symalg_cipher;
+#define ECCref_MAX_BITS		(512)
+#define ECCref_MAX_LEN		((ECCref_MAX_BITS+7)/8)
+typedef struct ECCrefPublicKey_st
+{
+	unsigned int bits;
+	unsigned char x[ECCref_MAX_LEN];
+	unsigned char y[ECCref_MAX_LEN];
+}ECCrefPublicKey;
+
+
+#define MAX_ID_LEN (256)
+typedef struct hash_para
+{
+	unsigned int alg_id;
+	ECCrefPublicKey public;
+	unsigned int ID_length;
+	unsigned char ID[MAX_ID_LEN];
+}hash_para;
+
+#define HASH_INIT		0x25
+#define HASH_UPDATE		0x26
+#define HASH_FINAL		0x27
+#define HASH_PRE_FINAL	0x28
 /*临时声明结束*/
 
 
