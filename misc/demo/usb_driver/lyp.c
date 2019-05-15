@@ -8,13 +8,6 @@
 #include <linux/types.h>
 #include <net/sock.h>
 #include <net/netlink.h>
-#include <linux/string.h>
-#include <linux/kref.h>
-#include <linux/kthread.h>
-#include <linux/delay.h>
-#include <linux/slab.h>
-#include <asm/uaccess.h>
-#include <linux/mutex.h>
 #include <linux/cdev.h>
 #include <linux/io.h>
 #include <linux/ioctl.h>
@@ -22,6 +15,7 @@
 #include <linux/fs.h>
 #include <linux/semaphore.h>
 #include <linux/kdev_t.h>
+#include <linux/rtc.h>
 
 //#include"pe100_usb_driver.h"
 #include"netlink_transfer.h"
@@ -69,10 +63,30 @@ unsigned int recv_len = MAX_MSGSIZE;
 struct usb_host_interface *iface_desc = NULL;
 struct usb_endpoint_descriptor *endpoint = NULL;
 
+struct rtc_time tm;
+struct timex txc;
+
 
 
 //unsigned int cf_suspend_flag = FALSE;//睡眠唤醒标记
 struct usb_skel *dev;    
+
+
+void get_sys_time(void)
+{
+	do_gettimeofday(&txc.time);
+	rtc_time_to_tm(txc.time.tv_sec + 8*3600,&tm);
+	DRIVER_INFO("UTC to Local time	:%d-%d-%d %d:%d:%d\n",tm.tm_year+1900,tm.tm_mon + 1, tm.tm_mday,tm.tm_hour,tm.tm_min,tm.tm_sec);
+}
+
+
+
+
+
+
+
+
+
 
 
 /*向应用层发送处理数据的异常状态信息
@@ -184,21 +198,30 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 		DRIVER_INFO("recv netlink data ssid:%d, cmd:%d\n",nlmsg_pid, nl_data_header->task_cmd);
 	}
 
-	ret = card_configuration_check(nl_data_header, &card_config_start_flag);//检查是否处于配置状态
-	if(ret != SDR_OK)	
+	if(card_config_start_flag == CONFIG_START)
 	{
-		if(ret > 0)
+		if(nl_data_header->task_type != TYPE_CPU)
 		{
-			kfree(nl_data_header);
-			nl_data_header = NULL;
+			send_netlink_status(nl_data_header, SDR_BEINGCONFIGURED, TASK_STATUS);
+			DRIVER_ERROR("Being Config Mode. task refuse !\n");	
+			return -1;
 		}
-		return -1;
 	}
 	
 	switch(nl_data_header->task_type)//不同的命令封包大小和操作不同   注意申请和释放空间
 	{
 		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
 				//card_head部分是原pe200中IC卡用到的数据，现在保留不用
+			ret = card_configuration_check(nl_data_header, &card_config_start_flag);//检查是否设置配置状态，打开或关闭配置标志
+			if(ret != SDR_OK)	
+			{
+				if(ret > 0)
+				{
+					kfree(nl_data_header);
+					nl_data_header = NULL;
+				}
+				return -1;
+			}
 			usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st) - sizeof(card_head), GFP_KERNEL);//去掉card_head
 			if(usb_data_header == NULL)
 			{
@@ -243,7 +266,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			{
 				if(g_ssision_id_str[nlmsg_pid - 1].sym_flag == 0)//标记，该会话开始进行sym大包传输时设为1
 				{//发送的第一包：需要发送对称加解密数据 这里的recv_data_len = 【symalg_cipher】【data】
-					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = (symalg_cipher *)(nl_data_header + sizeof(nl_packet_st))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
+					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = ((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
 					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 1;
 					usb_data_header = (usb_packet_st *)kmalloc(recv_data_len + sizeof(usb_packet_st), GFP_KERNEL);//【usb_packet_st】【symalg_cipher】【data】第一包需要发送symalg_cipher
 					if(usb_data_header == NULL)
@@ -404,7 +427,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->task_status = usb_data_header->packet_status;
 			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//包头的data_len应该是后面数据部分的总长度，驱动添加了一个card_head故更新长度
-			memcpy(nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->data_len);//填充数据
+			memcpy(nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);//填充数据
 			//填充card_head部分以适配SDF接口
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->status = usb_data_header->packet_status;
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->packet_len = usb_data_header->packet_len + sizeof(card_head);//pcard_head的packet_len为数据部分长度
@@ -471,8 +494,8 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				break;
 			}
 			break;
-
-		case default:
+			
+		default:
 			DRIVER_ERROR("Wrong tasy_type: %d\n", nl_data_header->task_type);
 			break;
 	}
@@ -888,6 +911,7 @@ static int driver_cdev_init(unsigned int major)
 	int result = -1;
 	int err;
 	dev_t devno;
+	dev_no = MKDEV(major, 0);
 	if(major)
 	{
 		result = register_chrdev_region(devno, MEMDEV_NUM, cdev_driver_name);
@@ -953,20 +977,19 @@ static int probe_usb(struct usb_interface *interface, const struct usb_device_id
 
 	spin_lock_init(&open_spinlock);//初始化锁、信号量
 	sema_init(&ioctl_sem, 1);
-
-	netlink_init(NETLINK_TEST);//初始化Netlink
+	
+	//netlink_init(NETLINK_TEST);//初始化Netlink
 	driver_cdev_init(g_mem_major);//初始化字符设备
 
-
+	get_sys_time();//获取系统时间
 	
 	unsigned char data[1024*8+512];
 	memset(data, 6, 1024*8+512);
 
 
-	usb_plug_device(interface, id);
-
-	usb_data_send(data,1024*8+512);
-	usb_data_recv(data,1024*8+512);
+	//usb_plug_device(interface, id);
+	//usb_data_send(data,1024*8+512);
+	//usb_data_recv(data,1024*8+512);
 
 	
 	return 0;
