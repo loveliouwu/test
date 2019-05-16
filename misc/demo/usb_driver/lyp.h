@@ -108,7 +108,7 @@ struct usb_skel {
         __u8 bulk_in_endpointAddr;        //批量IN端点的地址
         __u8 bulk_out_endpointAddr;       //批量OUT端点的地址
         struct kref kref;                 //sturct kref作为内核中最基本的引用计数而存在
-        struct mutex io_mutex;            //同步的IO互斥锁，保证
+        struct mutex io_mutex;            //同步的IO互斥锁
 
 };
 
@@ -188,6 +188,7 @@ usb接收发送的数据头信息
 typedef struct _usb_packet_st
 {
 	interface_cmd head;	//SDF与管理软件区分
+	unsigned int packet_pid;
 	unsigned int packet_cmd;	//具体命令编号
 	unsigned int packet_status;		//执行状态
 	unsigned int packet_len;	//整个数据包长度
@@ -202,7 +203,7 @@ static void driver_cdev_exit(unsigned int major);
 int send_netlink_status(nl_packet_st *data_info, unsigned int status, unsigned int flag);
 int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid);
 static unsigned int  usb_data_send(unsigned char * pbuff,unsigned int length);
-static unsigned int usb_data_recv(unsigned char * pbuff,unsigned int length);
+static unsigned int usb_data_recv(unsigned char * pbuff);
 int usb_plug_device(struct usb_interface *interface, const struct usb_device_id *id);
 static int probe_usb(struct usb_interface *interface, const struct usb_device_id *id);
 static void disconnect_usb(struct usb_interface *interface);
