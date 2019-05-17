@@ -44,7 +44,7 @@ char cdev_driver_name[] = "cf_dev";
 static struct cdev g_cdev;
 static struct class *g_dev_class;
 static struct device *g_dev_device;
-static int g_mem_major = CF_DRIVER_MAJOR;
+static unsigned int g_mem_major = CF_DRIVER_MAJOR;
 
 
 /*会话标记*/
@@ -93,7 +93,7 @@ void get_sys_time(void)
 	{
 		printk("%d ",data[i]);
 	}
-
+	printk("\n");
 	//usb_data_send(data,8);
 	//usb_data_recv(data,8);
 }
@@ -258,7 +258,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	usb_data_header->packet_pid = nl_data_header->task_pid;
 
 	//当是CPU任务时usb_data_header->packet_len和nl_data_header->data_len不相同
-	//注意HASH时这个长度不包含74字节数据
+	//注意HASH时这个长度包含74字节数据
 	usb_data_header->packet_len = nl_data_header->data_len;
 
 
@@ -334,6 +334,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				break;
 			
 			case HASH_UPDATE:
+				usb_data_header->packet_len = nl_data_header->data_len + 74;
 				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
@@ -342,6 +343,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 
 			case HASH_FINAL:
+				usb_data_header->packet_len = nl_data_header->data_len + 74;
 				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
@@ -360,7 +362,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	}	
 	
 	//封包之后调用usb发送等待接收
-	ret = usb_data_send((unsigned char*)usb_data_header, recv_data_len + sizeof(usb_packet_st));
+	ret = usb_data_send((unsigned char*)usb_data_header, usb_data_header->packet_len + sizeof(usb_packet_st));
 	if(ret != 0)
 	{
 		DRIVER_ERROR("send usb data ERROR\n");
@@ -774,18 +776,17 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	unsigned int trans_id = 0;
 	unsigned int loop_value = 0;
-	//	kernel_info info;
 	int i = 0;
-	//int j = 0;
 	int ret = SDR_UNKNOWERR;
 	if(down_interruptible(&ioctl_sem))
 	{
+		DRIVER_ERROR("down_interruptible ERR!\n");
 		return ret;
 	}
-	DRIVER_INFO("ioctl cmd:%d\n",cmd);
 	switch(cmd)
 	{
 		case CMD_GET_SID:
+			DRIVER_INFO("ioctl cmd: CMD_GET_SID\n");
 			if(copy_from_user((unsigned char *)&trans_id, (char*)arg, sizeof(unsigned int)))
 			{
 				DRIVER_ERROR("Failed copy from user. \n");
@@ -797,10 +798,6 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				loop_value = (s_id_value + i)%MAX_SSISION_COUNT;
 				if(g_ssision_id_str[loop_value].ssision_id_flag == 0)
 				{
-					g_ssision_id_str[loop_value].sym_flag = 0;//初始化该会话的sym全局变量
-					g_ssision_id_str[loop_value].sym_offset = 0;
-					g_ssision_id_str[loop_value].sym_data_len = 0;
-
 					g_ssision_id_str[loop_value].ssision_id_flag = 1;
 					g_ssision_id_str[loop_value].ssision_id = loop_value + 1;
 					trans_id = loop_value + 1;
@@ -827,11 +824,23 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
 		case CMD_RELEASE_SID:
+			DRIVER_INFO("ioctl cmd: CMD_RELEASE_SID \n");
 			if(copy_from_user(&trans_id, (unsigned char *)arg, sizeof(unsigned int)))
 			{
 				DRIVER_ERROR("Failed copy from user.\n\n");
 				ret = SDR_UNKNOWERR;
 				break;
+			}
+			if(g_ssision_id_str[trans_id -1].ssision_id_flag == 1)
+			{
+				g_ssision_id_str[trans_id -1].ssision_id_flag = 0;
+				g_ssision_id_str[trans_id -1].ssision_id = 0;
+				filp->private_data = NULL;
+				DRIVER_INFO("release ss_sid:%d\n",trans_id);
+			}
+			else
+			{
+				DRIVER_ERROR("release ss_sid %d is not used! \n",trans_id);			
 			}
 			ret = SDR_OK;
 			break;
@@ -853,7 +862,7 @@ int usb_open(struct inode* inode, struct file* filp)
 	DRIVER_INFO("device open!\n");
 	spin_lock(&open_spinlock);
 	g_open_count += 1;
-	spin_lock(&open_spinlock);
+	spin_unlock(&open_spinlock);
 	return 0;
 }
 
@@ -892,50 +901,55 @@ struct file_operations cf_usb_init =
 
 
 /*完成字符设备的注册与设备节点的动态申请*/
-static int driver_cdev_init(unsigned int major)
+static int driver_cdev_init(void)
 {
 	int result = -1;
 	int err;
 	dev_t devno;
-	devno = MKDEV(major, 0);
-	if(major)
+	devno = MKDEV(g_mem_major, 0);
+	DRIVER_INFO("register_chrdev_region start!\n");
+	if(g_mem_major)
 	{
 		result = register_chrdev_region(devno, MEMDEV_NUM, cdev_driver_name);
+		DRIVER_INFO("register_chrdev_region ok!\n");
 	}
 	else
 	{
 		result = alloc_chrdev_region(&devno, 0, MEMDEV_NUM, cdev_driver_name);
-		major = MAJOR(devno);
-		DRIVER_INFO("major dev num:%d\n", major);
+		g_mem_major = MAJOR(devno);
+		DRIVER_INFO("major dev num:%d\n", g_mem_major);
 	}
 	if(result < 0)
 	{
-		DRIVER_ERROR("can't get major dev_num:%d\n", major);
+		DRIVER_ERROR("can't get major dev_num:%d\n", g_mem_major);
 		return result;
 	}
 	/*注册设备驱动*/
 	cdev_init(&g_cdev, &cf_usb_init);/*初始化cdev结构*/
 	g_cdev.owner = THIS_MODULE;
 	
-	err = cdev_add(&g_cdev, MKDEV(major, 0), MEMDEV_NUM); //如果有N个设备就要添加N个设备号
+	err = cdev_add(&g_cdev, MKDEV(g_mem_major, 0), MEMDEV_NUM); //如果有N个设备就要添加N个设备号
 	if(err)
 	{
 		DRIVER_ERROR("add cdev failed, err is %d\n",err);
 		result = err;
 		goto free_chrdev_region;
 	}
-
+	DRIVER_INFO("add cdev ok\n");
 	/*自动注册设备节点*/
 	g_dev_class = class_create(THIS_MODULE, cdev_driver_name); //创建一个类
 	if(IS_ERR(g_dev_class))
 	{
 		result = PTR_ERR(cdev_driver_name);//创建一个类
+		DRIVER_ERROR("class_create %d\n",result);
 		goto free_cdev_add;
 	}
-	g_dev_device = device_create(g_dev_class, NULL, MKDEV(major, 0), NULL, cdev_driver_name);
+	DRIVER_INFO("class_create ok\n");
+	g_dev_device = device_create(g_dev_class, NULL, MKDEV(g_mem_major, 0), NULL, cdev_driver_name);
 	if(IS_ERR(g_dev_device))
 	{
 		result = PTR_ERR(g_dev_device);
+		DRIVER_ERROR("device_create failed, err is %d\n",result);
 		goto free_class_create;
 	}
 	result = 0;
@@ -945,17 +959,20 @@ static int driver_cdev_init(unsigned int major)
 	free_cdev_add:
 		cdev_del(&g_cdev);
 	free_chrdev_region:
-		unregister_chrdev_region(MKDEV(major, 0), MEMDEV_NUM);
+		unregister_chrdev_region(MKDEV(g_mem_major, 0), MEMDEV_NUM);
 		return result;
 }
 
 /*完成字符设备的卸载与设备节点的销毁*/
-static void driver_cdev_exit(unsigned int major)
+static void driver_cdev_exit(void)
 {
-	device_destroy(g_dev_class, MKDEV(major, 0));
+	DRIVER_INFO("major dev_exit num:%d\n", g_mem_major);
+	device_destroy(g_dev_class, MKDEV(g_mem_major, 0));
 	class_destroy(g_dev_class);
 	cdev_del(&g_cdev);
-	unregister_chrdev_region(MKDEV(major, 0), MEMDEV_NUM);	
+	unregister_chrdev_region(MKDEV(g_mem_major, 0), MEMDEV_NUM);
+			
+	DRIVER_INFO("cdev_exit ok!\n");	
 }
 
 
@@ -968,7 +985,7 @@ static int probe_usb(struct usb_interface *interface, const struct usb_device_id
 	spin_lock_init(&open_spinlock);//初始化锁、信号量
 	sema_init(&ioctl_sem, 1);
 	//netlink_init(NETLINK_TEST);//初始化Netlink
-	driver_cdev_init(g_mem_major);//初始化字符设备
+	driver_cdev_init();//初始化字符设备
 	get_sys_time();//获取系统时间
 	
 
@@ -982,14 +999,14 @@ static int probe_usb(struct usb_interface *interface, const struct usb_device_id
 
 static void disconnect_usb(struct usb_interface *interface){
 
-	driver_cdev_exit(g_mem_major);
+	driver_cdev_exit();
 	DRIVER_INFO("cdev_exit success\n");
 	netlink_exit();
 	DRIVER_INFO("netlink_exit success\n");
 
 	if(dev!=NULL)
 		kzfree(dev);
-	printk("USB removed\n");
+	DRIVER_INFO("USB removed\n");
 
 }
 
@@ -1056,7 +1073,7 @@ static void  __exit usb_exit(void)
 	
 
 	usb_deregister(&usb_driver);
-	printk("++++++USB_EXIT : I am in USB_EXIT function\n");
+	DRIVER_INFO("USB_EXIT : USB_EXIT function over!\n");
 
 }
 

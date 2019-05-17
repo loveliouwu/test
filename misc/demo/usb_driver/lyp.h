@@ -197,8 +197,8 @@ typedef struct _usb_packet_st
 
 
 
-static int driver_cdev_init(unsigned int major);
-static void driver_cdev_exit(unsigned int major);
+static int driver_cdev_init(void);
+static void driver_cdev_exit(void);
 
 int send_netlink_status(nl_packet_st *data_info, unsigned int status, unsigned int flag);
 int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid);
