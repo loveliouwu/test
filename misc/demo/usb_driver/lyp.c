@@ -798,6 +798,10 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				loop_value = (s_id_value + i)%MAX_SSISION_COUNT;
 				if(g_ssision_id_str[loop_value].ssision_id_flag == 0)
 				{
+					g_ssision_id_str[loop_value].sym_flag = 0;//初始化该会话的sym全局变量
+					g_ssision_id_str[loop_value].sym_offset = 0;
+					g_ssision_id_str[loop_value].sym_data_len = 0;
+
 					g_ssision_id_str[loop_value].ssision_id_flag = 1;
 					g_ssision_id_str[loop_value].ssision_id = loop_value + 1;
 					trans_id = loop_value + 1;
