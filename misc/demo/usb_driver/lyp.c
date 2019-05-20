@@ -19,9 +19,8 @@
 
 //#include"pe100_usb_driver.h"
 #include"netlink_transfer.h"
-//#include"cf_log.h"
+#include"cf_log.h"
 #include"lyp.h"
-
 
 #define DRIVER_INFO(fmt, arg...)	printk("[DR_INFO: func: %s line: %d]"fmt,__func__,__LINE__,##arg);
 #define DRIVER_ERROR(fmt, arg...)	printk("[DR_ERROR: func: %s line: %d]"fmt, __func__, __LINE__,##arg);
@@ -56,7 +55,7 @@ unsigned char g_ssision_id_flag[MAX_SSISION_COUNT];
 unsigned int s_id_value = 0;
 g_ssision_struct g_ssision_id_str[MAX_SSISION_COUNT];
 
-
+unsigned char data[8];//记录系统时间
 
 
 unsigned int recv_len = 0;
@@ -74,14 +73,15 @@ struct usb_skel *dev;
 
 void get_sys_time(void)
 {
-	unsigned int i = 0;
-	unsigned char data[8];
+	usb_packet_st *usb_header = (usb_packet_st *)kmalloc(sizeof(usb_packet_st) + 8, GFP_KERNEL);
+	usb_header->packet_cmd = 0xaaa; //获取系统时间命令  
+	usb_header->packet_len = 8;	
+
+
 
 	do_gettimeofday(&txc.time);
 	rtc_time_to_tm(txc.time.tv_sec + 8*3600,&tm);
-	DRIVER_INFO("UTC to Local time	:%d-%d-%d %d:%d:%d\n",tm.tm_year+1900,tm.tm_mon + 1, tm.tm_mday,tm.tm_hour,tm.tm_min,tm.tm_sec);
-	
-	memset(data, 0, 8);
+
 	data[0] = tm.tm_sec;
 	data[1] = tm.tm_min;
 	data[2] = tm.tm_hour;
@@ -89,12 +89,13 @@ void get_sys_time(void)
 	data[4] = tm.tm_mon + 1;
 	data[5] = tm.tm_year+1900-2000;
 	data[6] = 20;
-	for(i=7;i>0;i--)
-	{
-		printk("%d ",data[i]);
-	}
-	printk("\n");
-	//usb_data_send(data,8);
+	DRIVER_INFO("SYS	time	:%d%d-%d-%d %d:%d:%d\n",data[6],data[5],data[4],data[3],data[2],data[1],data[0]);
+
+	//memset(data,0,8);
+	memcpy((unsigned char *)usb_header + sizeof(usb_packet_st), data, 8);
+	usb_data_send((unsigned char*)usb_header,sizeof(usb_packet_st) + 8);
+
+	kfree(usb_header);
 	//usb_data_recv(data,8);
 }
 
@@ -255,7 +256,6 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	
 	//这部分包头是相同的
 	usb_data_header->packet_cmd = nl_data_header->task_cmd;
-	usb_data_header->packet_pid = nl_data_header->task_pid;
 
 	//当是CPU任务时usb_data_header->packet_len和nl_data_header->data_len不相同
 	//注意HASH时这个长度包含74字节数据
@@ -296,7 +296,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 			if(((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len <= MAX_SEND_DATA_LEN)//任务长度小于最大包长度（8k）则为小包
 			{
-				memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
 			}
 			else//大包
 			{
@@ -304,18 +304,18 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				{//发送的第一包：需要发送对称加解密数据 这里的recv_data_len = 【symalg_cipher】【data】
 					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = ((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
 					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 1;
-					memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分 
+					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分 
 					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len - sizeof(symalg_cipher);//记录发送的数据长度
 				}
 				else
 				{//发送后续包，只用发送数据 这里的recv_data_len = 【data】
 					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len;//更新已发送的数据长度
-					memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
 				}
 			}
 			break;
 		case TYPE_ASYM: //非对称包组成【nl_packet_st】【data】   recv_data_len = 【data】  注：非对称任务没有大包
-			memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+			memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
 			break;
 
 		case TYPE_HASH://包含init update 和 final 
@@ -327,7 +327,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			switch (nl_data_header->task_cmd)
 			{
 			case HASH_INIT:
-				memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				//如果是预处理
 				//if(((hash_para *)(nl_data_header + sizeof(nl_data_header)))->ID_length != 0 && (((hash_para *)(nl_data_header + sizeof(nl_data_header)))->alg_id == SGD_SM3))
 				memset(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 0, 74);//初始化等待接收加密模块返回的74字节数据
@@ -335,8 +335,8 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			
 			case HASH_UPDATE:
 				usb_data_header->packet_len = nl_data_header->data_len + 74;
-				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
-				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
 				//如果是预处理
 				//if(((hash_para *)(nl_data_header + sizeof(nl_data_header)))->ID_length != 0 && (((hash_para *)(nl_data_header + sizeof(nl_data_header)))->alg_id == SGD_SM3))
@@ -344,8 +344,8 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 			case HASH_FINAL:
 				usb_data_header->packet_len = nl_data_header->data_len + 74;
-				memcpy(usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
-				memcpy(usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
 
 			default:
@@ -391,7 +391,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->task_status = usb_data_header->packet_status;
 			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//包头的data_len应该是后面数据部分的总长度，驱动添加了一个card_head故更新长度
-			memcpy(nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
 			//填充card_head部分以适配SDF接口
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->status = usb_data_header->packet_status;
 			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->packet_len = usb_data_header->packet_len + sizeof(card_head);//pcard_head的packet_len为数据部分长度
@@ -401,7 +401,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->data_len = usb_data_header->packet_len;
 			nl_data_header->task_status = usb_data_header->packet_status;
-			memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
 			//大包第一包时：packet_len = 【symalg_cipher】【data】
 			//大包中间包时：packet_len = 【data】
 			//小包：packet_len = 【symalg_cipher】【data】
@@ -424,7 +424,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->data_len = usb_data_header->packet_len;
 			nl_data_header->task_status = usb_data_header->packet_status;
-			memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
 			break;
 
 		case TYPE_HASH:
@@ -434,24 +434,24 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				nl_data_header->task_cmd = usb_data_header->packet_cmd;
 				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中
 				nl_data_header->task_status = usb_data_header->packet_status;
-				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
-				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				memcpy((unsigned char *)(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data), usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
+				memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
 				break;
 			
 			case HASH_UPDATE:
 				nl_data_header->task_cmd = usb_data_header->packet_cmd;
 				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中
 				nl_data_header->task_status = usb_data_header->packet_status;
-				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
-				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				memcpy((unsigned char *)(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data), usb_data_header + sizeof(usb_packet_st), 74);//保存hash运算返回的74字节数据于该会话信息中
+				memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
 				break;
 
 			case HASH_FINAL:
 				nl_data_header->task_cmd = usb_data_header->packet_cmd;
 				nl_data_header->data_len = usb_data_header->packet_len - 74;//这个74字节数据只保存在驱动中，最终长度为哈希运算返回的结果长度
 				nl_data_header->task_status = usb_data_header->packet_status;
-				memcpy(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, usb_data_header + sizeof(usb_packet_st), 74);//保不保存无影响，下次SDF调用init时会清0
-				memcpy(nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
+				memcpy((unsigned char *)(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data), usb_data_header + sizeof(usb_packet_st), 74);//保不保存无影响，下次SDF调用init时会清0
+				memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st) + 74, usb_data_header->packet_len - 74);
 				break;
 
 			default:
@@ -467,7 +467,11 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	ret = netlink_send((unsigned char *)nl_data_header, sizeof(nl_packet_st) + nl_data_header->data_len, nl_data_header->task_pid);
 	if(ret >= 0)
 	{
-		DRIVER_INFO("TASK SUCCESSED!\n")
+		DRIVER_INFO("TASK SUCCESSED!\n");
+	}
+	else
+	{
+			
 	}
 	//释放资源
 	if(nl_data_header != NULL)
@@ -505,7 +509,7 @@ static unsigned int  usb_data_send(unsigned char * pbuff,unsigned int length)
 	}
 	DRIVER_INFO("start usb_bulk_msg send data\n");
 
-	memcpy(dev->bulk_out_buffer, pbuff, datalen);  //复制发送的数据到usb发送buffer
+	memcpy((unsigned char *)dev->bulk_out_buffer, pbuff, datalen);  //复制发送的数据到usb发送buffer
 
 	//if(copy_from_user(dev->bulk_out_buffer,pbuff,datalen))//不涉及用户空间指针  无需转换
 	if(datalen > MAX_MSGSIZE)
@@ -539,7 +543,7 @@ static unsigned int  usb_data_send(unsigned char * pbuff,unsigned int length)
 				}
 				
 				DRIVER_INFO("usb_bulk_msg send_data ok !\n");
-				DRIVER_INFO("send_data = %d\n",dev->bulk_out_buffer[offset-1]);
+				DRIVER_INFO("send_data = %d\n",dev->bulk_out_buffer[0]);
 			}
 			else
 			{
@@ -564,8 +568,7 @@ static unsigned int  usb_data_send(unsigned char * pbuff,unsigned int length)
 			);
 		if(retval == 0)
 		{
-			DRIVER_INFO("usb_bulk_msg send_data ok !\n");
-			DRIVER_INFO("send_data = %d\n",dev->bulk_out_buffer[1]);
+			DRIVER_INFO("usb_bulk_msg send_data ok ! send_len = %d\n", recv_len);
 		}
 		else
 		{
@@ -601,7 +604,7 @@ static unsigned int usb_data_recv(unsigned char * pbuff)
 	}
 	
 	//先收包头
-	recvlen = sizeof(usb_packet_st);
+	recvlen = sizeof(usb_packet_st);//期望收到的数据长度
 	retval = usb_bulk_msg(
 				dev->udev,
 				usb_rcvbulkpipe(
@@ -627,7 +630,7 @@ static unsigned int usb_data_recv(unsigned char * pbuff)
 	}
 	else
 	{
-		DRIVER_ERROR("data copy_to_user err !\n");
+		DRIVER_ERROR("recv first packet err !\n");
 		return -1;
 	}
 
@@ -643,7 +646,7 @@ static unsigned int usb_data_recv(unsigned char * pbuff)
 					dev->udev,
 					dev->bulk_in_endpointAddr
 					),
-				dev->bulk_in_buffer + offset,  //接收时候也一次放入内核空间，然后统一取出数据
+				dev->bulk_in_buffer + offset,  //第一次偏移包头长度
 				recvlen,//期望接收的长度
 				&recv_len,//实际接收的长度
 				2000			
@@ -704,7 +707,7 @@ static unsigned int usb_data_recv(unsigned char * pbuff)
 
 	}
 	//从接收buffer中取出除包头外剩余数据
-	memcpy(pbuff + sizeof(usb_packet_st), dev->bulk_in_buffer + sizeof(usb_packet_st), ((usb_packet_st *)pbuff)->packet_len); 
+	memcpy((unsigned char *)pbuff + sizeof(usb_packet_st), dev->bulk_in_buffer + sizeof(usb_packet_st), ((usb_packet_st *)pbuff)->packet_len); 
 	
 	return 0;
 }
@@ -798,10 +801,6 @@ long usb_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				loop_value = (s_id_value + i)%MAX_SSISION_COUNT;
 				if(g_ssision_id_str[loop_value].ssision_id_flag == 0)
 				{
-					g_ssision_id_str[loop_value].sym_flag = 0;//初始化该会话的sym全局变量
-					g_ssision_id_str[loop_value].sym_offset = 0;
-					g_ssision_id_str[loop_value].sym_data_len = 0;
-
 					g_ssision_id_str[loop_value].ssision_id_flag = 1;
 					g_ssision_id_str[loop_value].ssision_id = loop_value + 1;
 					trans_id = loop_value + 1;
@@ -982,18 +981,18 @@ static void driver_cdev_exit(void)
 
 static int probe_usb(struct usb_interface *interface, const struct usb_device_id *id)
 {
-	unsigned char data[1024*8+512];
-	memset(data, 6, 1024*8+512);
+
 
 
 	spin_lock_init(&open_spinlock);//初始化锁、信号量
 	sema_init(&ioctl_sem, 1);
 	//netlink_init(NETLINK_TEST);//初始化Netlink
+	usb_plug_device(interface, id);
 	driver_cdev_init();//初始化字符设备
 	get_sys_time();//获取系统时间
 	
 
-	//usb_plug_device(interface, id);
+	
 	//usb_data_send(data,1024*8+512);
 	//usb_data_recv(data,1024*8+512);
 

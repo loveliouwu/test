@@ -119,7 +119,7 @@ netlink收到的包由以下部分组成：
 */
 
 /*netlink接收包头card_head部分*/
-typedef struct card_head_st
+typedef struct card_head_st//大小16字节
 {
 	unsigned int packet_cmd;//SDF填充
 	unsigned int status;//驱动填充
@@ -130,7 +130,7 @@ typedef struct card_head_st
 /*
 netlink接收发送包头nl_packet_st部分，对应SDF接口中 task_info
 */
-typedef struct nl_task_type_comment_st
+typedef struct nl_task_type_comment_st //大小16字节
 {
 	unsigned char flag;		//任务flag
 	unsigned char task_type;	//任务类型属性
@@ -185,10 +185,9 @@ typedef enum interface_cmd_st
 /*
 usb接收发送的数据头信息
 */
-typedef struct _usb_packet_st
+typedef struct _usb_packet_st	//大小16字节
 {
 	interface_cmd head;	//SDF与管理软件区分
-	unsigned int packet_pid;
 	unsigned int packet_cmd;	//具体命令编号
 	unsigned int packet_status;		//执行状态
 	unsigned int packet_len;	//整个数据包长度
