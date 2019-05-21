@@ -221,7 +221,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 		memset(nl_data_header, 0, recv_data_len + sizeof(nl_packet_st));
 		DRIVER_INFO("Malloc nl_data_header OK!\n");
 		//nl_data_header->task_pid = nlmsg_pid;
-		memcpy(nl_data_header, data_addr, recv_data_len + sizeof(nl_packet_st));//复制包数据到申请的空间
+		memcpy(nl_data_header, data_addr, (unsigned char *)recv_data_len + sizeof(nl_packet_st));//复制包数据到申请的空间
 		DRIVER_INFO("recv netlink data ssid:%d, cmd:%d\n",nlmsg_pid, nl_data_header->task_cmd);
 	}
 
@@ -266,7 +266,6 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 	switch(nl_data_header->task_type)//不同的命令封包大小和操作不同   注意申请和释放空间
 	{
 		case TYPE_CPU://CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
-				//card_head部分是原pe200中IC卡用到的数据，现在保留不用
 			ret = card_configuration_check(nl_data_header, &card_config_start_flag);//检查是否设置配置状态，打开或关闭配置标志
 			if(ret != SDR_OK)	
 			{
@@ -279,9 +278,8 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				}
 				return -1;
 			}
-			//memset(usb_data_header, 0, recv_data_len + sizeof(usb_packet_st) - sizeof(card_head));
-			memcpy(usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), recv_data_len);
-			usb_data_header->packet_len = nl_data_header->data_len - sizeof(card_head);//驱动去掉了一个card_head部分，需要调整发送长度
+			memcpy(usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);
+			usb_data_header->packet_len = nl_data_header->data_len;
 			break;
 
 		case TYPE_SYM://sym计算  encrypt decrypt calculate_mac 三个接口用到  涉及到大包，需要请求数据
@@ -296,7 +294,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 			if(((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len <= MAX_SEND_DATA_LEN)//任务长度小于最大包长度（8k）则为小包
 			{
-				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
 			}
 			else//大包
 			{
@@ -304,18 +302,18 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 				{//发送的第一包：需要发送对称加解密数据 这里的recv_data_len = 【symalg_cipher】【data】
 					g_ssision_id_str[nlmsg_pid - 1].sym_data_len = ((symalg_cipher *)(nl_data_header + sizeof(nl_packet_st)))->data_len;//指向对称加解密数据头结构体，取出任务的最大包长度
 					g_ssision_id_str[nlmsg_pid - 1].sym_flag = 1;
-					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分 
+					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分 
 					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len - sizeof(symalg_cipher);//记录发送的数据长度
 				}
 				else
 				{//发送后续包，只用发送数据 这里的recv_data_len = 【data】
 					g_ssision_id_str[nlmsg_pid - 1].sym_offset += recv_data_len;//更新已发送的数据长度
-					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
+					memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);//复制数据部分
 				}
 			}
 			break;
 		case TYPE_ASYM: //非对称包组成【nl_packet_st】【data】   recv_data_len = 【data】  注：非对称任务没有大包
-			memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+			memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);
 			break;
 
 		case TYPE_HASH://包含init update 和 final 
@@ -327,7 +325,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			switch (nl_data_header->task_cmd)
 			{
 			case HASH_INIT:
-				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				//如果是预处理
 				//if(((hash_para *)(nl_data_header + sizeof(nl_data_header)))->ID_length != 0 && (((hash_para *)(nl_data_header + sizeof(nl_data_header)))->alg_id == SGD_SM3))
 				memset(g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 0, 74);//初始化等待接收加密模块返回的74字节数据
@@ -335,7 +333,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 			
 			case HASH_UPDATE:
 				usb_data_header->packet_len = nl_data_header->data_len + 74;
-				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
 				//如果是预处理
@@ -344,7 +342,7 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 
 			case HASH_FINAL:
 				usb_data_header->packet_len = nl_data_header->data_len + 74;
-				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, nl_data_header + sizeof(nl_packet_st), recv_data_len);
+				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st) + 74, (unsigned char *)nl_data_header + sizeof(nl_packet_st), recv_data_len);
 				memcpy((unsigned char *)usb_data_header + sizeof(usb_packet_st), g_ssision_id_str[nlmsg_pid - 1].hash_misc_data, 74);//将init返回的74字节数据填充到包头后
 				break;
 
@@ -387,21 +385,17 @@ int netlink_recv_manage(char *data_addr, unsigned int nlmsg_pid)
 		case TYPE_CPU:
 			//usb收到的包格式为 【usb_packet_st】【data】
 			//CPU任务Netlink封包格式为  【nl_packet_st】【card_head】【data】
-			//card_head部分是原pe200中IC卡用到的数据，发送时需要填充
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->task_status = usb_data_header->packet_status;
-			nl_data_header->data_len = usb_data_header->packet_len + sizeof(card_head);//包头的data_len应该是后面数据部分的总长度，驱动添加了一个card_head故更新长度
-			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st) + sizeof(card_head), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
-			//填充card_head部分以适配SDF接口
-			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->status = usb_data_header->packet_status;
-			((card_head *)(nl_data_header + sizeof(nl_packet_st)))->packet_len = usb_data_header->packet_len + sizeof(card_head);//pcard_head的packet_len为数据部分长度
+			nl_data_header->data_len = usb_data_header->packet_len;
+			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), (unsigned char *)usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
 			break;
 
 		case TYPE_SYM:
 			nl_data_header->task_cmd = usb_data_header->packet_cmd;
 			nl_data_header->data_len = usb_data_header->packet_len;
 			nl_data_header->task_status = usb_data_header->packet_status;
-			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
+			memcpy((unsigned char *)nl_data_header + sizeof(nl_packet_st), (unsigned char *)usb_data_header + sizeof(usb_packet_st), usb_data_header->packet_len);
 			//大包第一包时：packet_len = 【symalg_cipher】【data】
 			//大包中间包时：packet_len = 【data】
 			//小包：packet_len = 【symalg_cipher】【data】
@@ -707,7 +701,7 @@ static unsigned int usb_data_recv(unsigned char * pbuff)
 
 	}
 	//从接收buffer中取出除包头外剩余数据
-	memcpy((unsigned char *)pbuff + sizeof(usb_packet_st), dev->bulk_in_buffer + sizeof(usb_packet_st), ((usb_packet_st *)pbuff)->packet_len); 
+	memcpy((unsigned char *)pbuff + sizeof(usb_packet_st), (unsigned char *)dev->bulk_in_buffer + sizeof(usb_packet_st), ((usb_packet_st *)pbuff)->packet_len); 
 	
 	return 0;
 }
