@@ -1,5 +1,5 @@
 CC		= gcc
-TARGET 	= main.o#libsdf.so
+TARGET 	= main.o
 SRCS	= SDF_Interface.c socket_client.c main.c -lpthread
 
 all:$(OBJS)

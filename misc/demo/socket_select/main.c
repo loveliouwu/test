@@ -20,12 +20,12 @@ void *sm4_test(void *session_handle)
     unsigned char pucIV[16];
     unsigned int recv_len;
     unsigned char enc_data[128];
+    unsigned char dec_dec_data[128];
+    unsigned int dec_dec_data_len;
     int j = 0;
-    if(psession_handle->sess.socket_fd <= 0)
-        exit(1);
     while(time--)
     {
-        
+        memset(pucIV,6,16);
         for(j=0;j<128/16;j++)
         {
             int i = 0;
@@ -34,18 +34,39 @@ void *sm4_test(void *session_handle)
                 enc_data[i+j*16] = j;
             }
         }
-        
-
+            
+        printf("--------thread_fd_index = %d\n",psession_handle->sess.socket_fd);
         SDF_Encrypt(psession_handle,&phKeyHandle,uiAlgID,pucIV,enc_data,128,dec_data,&recv_len);
-        printf("\n");
+        printf("Encrypt :\n");
         for(j=0;j<recv_len;j++)
         {
             printf("%02x ",dec_data[j]);
         }
         printf("\n");
         printf("--------%d\n",psession_handle->sess.socket_fd);
+
+
+        memset(pucIV,6,16);
+        int ret = SDF_Decrypt(psession_handle,
+            &phKeyHandle,
+            uiAlgID,
+            pucIV,
+            dec_data,
+            recv_len,
+            dec_dec_data,
+            &dec_dec_data_len);
+        if(ret != SDR_OK)
+        {
+            printf("SDF_Decrypt error!\n");
+        }
+        printf("Decrypt :\n");
+        for(j=0;j<dec_dec_data_len;j++)
+        {
+            printf("%02x ",dec_dec_data[j]);
+        }
+        printf("\n");
+        pthread_exit(NULL);
     }
-    pthread_exit(NULL);
 }
 
 
@@ -67,31 +88,23 @@ void main()
         exit(1);
     }
 
-
-    for(i=0;i<SOCKET_NUM - 1;i++)//最多打开１９９个会话，因为有一个socket负责传输命令
+    for(i=1;i<SOCKET_NUM;i++)
     {
         ret = SDF_OpenSession(pdev_handle,&psession_handle[i]);
-        if(ret != 0)
-        {
-            printf("open session err!  %d\n",i);
-            break;
-        }
-            
+    
         printf("ssid %d\n",i);
         pthread_create(&thread_id[i],NULL,sm4_test,psession_handle[i]);
     }
-
-
-    int ss=0;
-    printf("input->");
-    scanf("%d",&ss);
-
-    for(i=SOCKET_NUM - 2;i>=0;i--)
+    
+    //sm4_test(psession_handle[1]);
+    sleep(2);
+    for(i=1;i<SOCKET_NUM;i++)
     {
         ret = SDF_CloseSession(psession_handle[i]);
-        if(ret != 0)
-            continue;
     }
+
+    
+ 
 
 
     ret = SDF_CloseDevice(pdev_handle);

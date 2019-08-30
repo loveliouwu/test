@@ -4,9 +4,11 @@
 #include"SDF_Interface.h"
 
 
-#define SOCKET_NUM                  (200)
+#define SOCKET_NUM                  (3)
 #define MAX_SEND_BUFF_LEN           (1024*1024)
 #define MAX_KEY_INDEX               (4)
+#define SM2_BITS                    (256)
+#define SM2_BYTES                   (32)
 #define SM4_BITS                    (128*8)
 #define IV_LENGHT                   (16)
 #define SM4_KEY_LEN                 (16)
@@ -14,21 +16,39 @@
 #define MAX_ID_LEN                  (256)
 #define PUB_KEY_LEN                 (64)
 #define PRIV_KEY_LEN                (32)
-//控制类命令
-enum MAJOR_CMD_ENUM{
+
+#define PIN_MIN_LEN                 (8)
+#define PIN_MAX_LEN                 (16)
+#define MAX_PWD_KEB                 (32)
+#define MIN_PWD_KEB                 (8)
+
+
+//服务类命令
+enum MINOR_CMD_ENUM{
     OPEN_DEVICE = 0x0,
     CLOSE_DEVICE,
     OPEN_SESSION,
     CLOSE_SESSION,
-};
-//服务类命令
-enum MINOR_CMD_ENUM{
     SYM_ENCRYPT,
     SYM_DECRYPT,
-    GET_RANDOM,
     HASH_INIT,
     HASH_UPDATE,
     HASH_FINAL,
+    ECC_SIGN,
+    ECC_VERIGY = 10,
+    ECC_EX_VERIFY,//
+    GET_RANDOM,
+    GENERATE_KEY_PAIR,
+    GENERATE_AGREEMENT_PARA,
+    GENERATE_AGREEMENT_PARA_KEY = 15,
+    GENERATE_KEY_ECC,
+    GET_PRIVATE_KEY_RIGHT,
+    DESTORY_SESSION_KEY,
+
+    RELEASE_PRIVATE_KEY_RIGHT,
+    EXPORT_SIGN_PUB_KEY,
+    EXPORT_ENC_PUB_KEY,
+
 };
 
 
@@ -93,32 +113,123 @@ SDF算法相关的数据结构
 */
 typedef struct  symalg_cipher
 {
-    unsigned int key_handle;
     unsigned int alg_id;
-    unsigned int data_len;
+    unsigned char key_handle[16];//lyp　待确认
     unsigned char IV[IV_LENGHT];
+    unsigned int data_len;
+    unsigned char data[0];
 }symalg_cipher;
+
+/*sm3*/
+typedef struct sdf_sm3_st
+{
+    unsigned int data_len;
+    unsigned char data[0];
+}SM3_st;
+
+
 
 //获取随机数包头
 typedef struct GetRandom_st{
     unsigned int RandomLen;
-    unsigned char data[1];
+    unsigned char data[0];
 }GetRandom;
 
 /*生成秘钥协商参数*/
+typedef struct sdf_gen_agreement_par_handle_
+{
+	unsigned int A_prikey_index;
+	unsigned  int session_key_len;
+	unsigned char* rng[32];
+	unsigned char* A_pubkey[64];
+	unsigned char* A_mp_pubkey[64];
+	unsigned int A_id_len;
+	unsigned char* A_id[256];
+}sdf_gen_agreement_par_handle;
+
 typedef struct gen_agreement_para_st{
     unsigned int key_index;
-    unsigned int sid;
     unsigned int key_bits;
     unsigned int ID_length;
     unsigned char sponsor_ID[MAX_ID_LEN];
     unsigned char pubkey[PUB_KEY_LEN];
     unsigned char tmp_pubkey[PUB_KEY_LEN];
-    unsigned char agreemen_handle[64];
+    sdf_gen_agreement_par_handle agreement_handle;
 }Gen_agreemen_para;
 
+/*生成协商参数并计算会话秘钥*/
+typedef struct gen_agreement_key
+{
+    unsigned int key_index;
+    unsigned int password_len;
+    unsigned char password[PIN_MAX_LEN];
+    unsigned int key_bits;
+    unsigned int sponsorID_length;
+    unsigned char sponsor_ID[MAX_ID_LEN];
+    unsigned int responseID_length;
+    unsigned char response_ID[MAX_ID_LEN];
+    unsigned char sponsor_pubkey[PUB_KEY_LEN];
+    unsigned char sponsor_tmp_pubkey[PUB_KEY_LEN];
+    unsigned char response_pubkey[PUB_KEY_LEN];
+    unsigned char response_tmp_pubkey[PUB_KEY_LEN];
+    unsigned int key_handle;
+}Gen_agreement_key;
 
 
+/*计算会话秘钥*/
+typedef struct cipher_agreement_key{
+    unsigned int ID_Length;
+    unsigned char response_ID[MAX_ID_LEN];
+    unsigned char tmp_pubkey[PUB_KEY_LEN];
+    unsigned char pubkey[PUB_KEY_LEN];
+    unsigned char agreement_handle[64];
+    sdf_gen_agreement_par_handle key_handle;
+}Cipher_agreement_key;
 
+
+/*生成密钥对*/
+typedef struct Generate_key_pair_st
+{
+    unsigned int index;
+    unsigned int length;
+    unsigned char password[PIN_MAX_LEN];
+}Generate_key_pair;
+
+
+/*签名验签*/
+typedef struct Sign_Verify_ECC_st
+{
+    unsigned int index;
+    unsigned int password_len;
+    unsigned char password[PIN_MAX_LEN];
+    unsigned char datalen;
+    unsigned char data[SM2_BYTES];
+    unsigned char sign[64];
+}Sign_Verify_ECC;
+
+/*私钥使用权限*/
+typedef struct private_key_right_st
+{
+    unsigned int key_index;
+    unsigned int pwd_length;
+    unsigned char passwd[MAX_PWD_KEB];
+}Private_key_rigth;
+
+
+/*导出ECC签名、加密公钥*/
+typedef struct export_ecc_key
+{
+    unsigned int key_index;
+    unsigned int status;
+    unsigned char pubkey[PUB_KEY_LEN];
+}Export_pub_key;
+
+/*生成会话秘钥并用内部ECC公钥加密输出*/
+
+
+/*销毁会话秘钥*/
+typedef struct destroy_session_key_st{
+    int key_handle;
+}destroy_session_key;
 
 #endif

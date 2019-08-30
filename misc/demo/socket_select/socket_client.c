@@ -10,7 +10,7 @@
 #include"socket_client.h"
 
 
-//#define COMMON_DEBUG_LOG
+#define COMMON_DEBUG_LOG
 #ifdef COMMON_DEBUG_LOG
 #define COMMON_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
 #else 
@@ -28,7 +28,7 @@ int create_socket()
     addr_info.ai_socktype   = SOCK_STREAM;
 
     //
-    res = getaddrinfo("192.168.1.138","8088",&addr_info,&paddr_info);
+    res = getaddrinfo("192.168.1.30","8088",&addr_info,&paddr_info);
     if (res == -1) {
         COMMON_ERROR("error : cannot get socket address!\n");
         return -1;
@@ -67,6 +67,7 @@ int socket_init(void *pdev)
     for(i = 0;i<SOCKET_NUM;i++)
     {
         ret = create_socket();
+        COMMON_DEBUG("create socket %d\n",ret);
         if(ret > 0)
         {
             pdev_handle->socketfd[i] = ret;
