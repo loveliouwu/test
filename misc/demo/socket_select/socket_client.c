@@ -10,7 +10,7 @@
 #include"socket_client.h"
 
 
-#define COMMON_DEBUG_LOG
+//#define COMMON_DEBUG_LOG
 #ifdef COMMON_DEBUG_LOG
 #define COMMON_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
 #else 
@@ -156,7 +156,7 @@ int socket_send(session_list *psession_handle,unsigned int send_len)
     }
 #ifdef COMMON_DEBUG_LOG
     int i = 0;
-    printf("socket send %d\n",socket_fd);
+    printf("socket send_fd: %d , send_len: %d\n",socket_fd,send_len);
     for(i=0;i<send_len;i++)
     {
         printf("%02x ",psession_handle->sess.send_buff[i]);
@@ -168,7 +168,7 @@ int socket_send(session_list *psession_handle,unsigned int send_len)
     {
 #ifdef COMMON_DEBUG_LOG
     int i = 0;
-    printf("socket recv %d\n",socket_fd);
+    printf("socket recv_fd %d , recv_len: %d\n",socket_fd,read_len);
     for(i=0;i<read_len;i++)
     {
         printf("%02x ",psession_handle->sess.recv_buff[i]);

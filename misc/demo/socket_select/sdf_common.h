@@ -4,7 +4,7 @@
 #include"SDF_Interface.h"
 
 
-#define SOCKET_NUM                  (3)
+#define SOCKET_NUM                  (10)
 #define MAX_SEND_BUFF_LEN           (1024*1024)
 #define MAX_KEY_INDEX               (4)
 #define SM2_BITS                    (256)
@@ -17,7 +17,7 @@
 #define PUB_KEY_LEN                 (64)
 #define PRIV_KEY_LEN                (32)
 
-#define PIN_MIN_LEN                 (8)
+#define PIN_MIN_LEN                 (0)
 #define PIN_MAX_LEN                 (16)
 #define MAX_PWD_KEB                 (32)
 #define MIN_PWD_KEB                 (8)
@@ -140,15 +140,17 @@ typedef struct sdf_gen_agreement_par_handle_
 {
 	unsigned int A_prikey_index;
 	unsigned  int session_key_len;
-	unsigned char* rng[32];
-	unsigned char* A_pubkey[64];
-	unsigned char* A_mp_pubkey[64];
+	unsigned char rng[32];
+	unsigned char A_pubkey[64];
+	unsigned char A_mp_pubkey[64];
 	unsigned int A_id_len;
-	unsigned char* A_id[256];
+	unsigned char A_id[256];
 }sdf_gen_agreement_par_handle;
 
 typedef struct gen_agreement_para_st{
     unsigned int key_index;
+    unsigned int password_len;
+    unsigned char password[16];
     unsigned int key_bits;
     unsigned int ID_length;
     unsigned char sponsor_ID[MAX_ID_LEN];
@@ -180,9 +182,9 @@ typedef struct gen_agreement_key
 typedef struct cipher_agreement_key{
     unsigned int ID_Length;
     unsigned char response_ID[MAX_ID_LEN];
-    unsigned char tmp_pubkey[PUB_KEY_LEN];
     unsigned char pubkey[PUB_KEY_LEN];
-    unsigned char agreement_handle[64];
+    unsigned char tmp_pubkey[PUB_KEY_LEN];
+    unsigned char out_index;
     sdf_gen_agreement_par_handle key_handle;
 }Cipher_agreement_key;
 

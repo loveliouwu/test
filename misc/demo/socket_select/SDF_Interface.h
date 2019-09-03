@@ -28,7 +28,7 @@
 #define SDR_RANDERR				SDR_BASE+0x00000017		
 #define SDR_PRKRERR				SDR_BASE+0x00000018		
 #define SDR_MACERR 				SDR_BASE+0x00000019		
-#define SDR_FILEEXISTS 			SDR_BASE+0x000000lA	
+#define SDR_FILEEXISTS 			SDR_BASE+0x0000001A	
 #define SDR_FILEWERR			SDR_BASE+0x0000001B 	
 #define SDR_NOBUFFER 			SDR_BASE+0x0000001C		
 #define SDR_INARGERR			SDR_BASE+0x0000001D		
@@ -104,19 +104,21 @@ int SDF_CloseSession(void *phSessionHandle);
 int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,
                 unsigned int uiAlgID,
                 unsigned char *pucIV,
-                unsigned char *pucData,
-                unsigned int uiDataLength,
-                unsigned char *pucEncData,
-                unsigned int *puiEncDatalength);
+                unsigned char *pucData,//in
+                unsigned int uiDataLength,//in
+                unsigned char *pucEncData,//out
+                unsigned int *puiEncDatalength//out
+                );
 
 int SDF_Decrypt(void *hSessionHandle,
                 void *phKeyHandle,
                 unsigned int uiAlgID,
                 unsigned char *pucIV,
-                unsigned char *pucEncData,
-                unsigned int puiEncDatalength,
-                unsigned char *pucData,
-                unsigned int *puiDatalength);
+                unsigned char *pucEncData,//in
+                unsigned int puiEncDatalength,//in
+                unsigned char *pucData,//out
+                unsigned int *puiDatalength//out
+                );
 
 int HashInit(void *hSessionHandle);
 
@@ -132,6 +134,12 @@ Function:GenerateKeyWith_ECC
 Description:使用ECC秘钥协商算法，使用自身协商举兵和相应方的协商参数
             计算会话秘钥，同时返回会话秘钥
 Ａrgs:      [in]    hSessionHandle:会话句柄
+            [in]    pucResponseID
+            [in]    uiResponseIDLength
+            [in]    pucResponsePublicKey
+            [in]    pucResponseTmpPublicKey
+            [in]    phAgreementHandle
+            [out]   phKey
         
 */
 int GenerateKeyWith_ECC(void *hSessionHandle,
@@ -142,9 +150,26 @@ int GenerateKeyWith_ECC(void *hSessionHandle,
                         void *phAgreementHandle,
                         void **phKey);
 
+
+/*
+FUCN:GenerateAgreementDataWithECC
+IN:
+    hSessionHandle
+    uiISKIndex
+    password
+    password_len //小于等于16
+    uiKeyBits
+    pucSponsorID
+    uiSponsorIDLength
+OUT:
+    pucSponsorPublicKey
+    pucSponsorTmpPublicKey
+    phAgreementHandle
+*/
 int GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
+                                unsigned int password_len,
                                 unsigned int uiKeyBits,
                                 unsigned char *pucSponsorID,
                                 unsigned int uiSponsorIDLength,
@@ -152,6 +177,25 @@ int GenerateAgreementDataWithECC(void *hSessionHandle,
                                 ECCrefPublicKey *pucSponsorTmpPublicKey,
                                 void **phAgreementHandle);
 
+/*
+FUCN:GenerateAgreementDataAndKeyWithECC
+IN:
+    hSessionHandle
+    uiISKIndex
+    password
+    password_len //小于等于16
+    uiKeyBits
+    pucSponsorID
+    uiSponsorIDLength
+    uiResponsorIDLength
+    puiResponsorID
+    pucSponsorPublickey
+    pucSponsorTmpPublickey
+OUT:
+    pucResponsorPublicKey
+    pucResponsorTmpPublicKey
+    phKey
+*/
 int GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
@@ -186,19 +230,6 @@ int Verfiy_ECC(void *hSessionHandle,
                 unsigned int uiDataLength,
                 ECCSignature *pucSignature);
 
-int SDF_GetPrivateKeyAccessRight(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex,
-    unsigned char * pucPassword,
-    unsigned int uiPwdLength
-);
-
-int SDF_ReleasePrivateKeyAccessRight(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex
-);
-
-
 int SDF_ExportSignPublicKey_ECC(
     void * hSessionHandle,
     unsigned int uiKeyIndex,
@@ -232,7 +263,6 @@ int Destroy_session_key(
     void *phKeyHandle
 );
 
-void test(void *hSessionHanlde);
 
 
 
