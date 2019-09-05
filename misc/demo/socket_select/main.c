@@ -73,11 +73,11 @@ void *sm3test(void *session_handle)
 {
     int i;
     int ret = SDR_OK;
-    unsigned int data_len = 128;
-    unsigned char data_in[data_len];
+    void *session_new;
+    unsigned int data_len = 3;
+    unsigned char data_in[3] = {0x61,0x62,0x63};
     unsigned char data_out[data_len];
     unsigned int data_out_len;
-    memset(data_in,8,data_len);
     //初始化阶段
     ret = SDF_HashInit(session_handle);
     if(ret != SDR_OK)
@@ -92,12 +92,21 @@ void *sm3test(void *session_handle)
     // }
     // printf("\n");
 
+    
+    ret = SDF_Hash_Copy(session_handle,&session_new);
+    if(ret != 0)
+        printf("hash copy error!\n");
+
+
+//-----------1
     ret = SDF_HashUpdate(session_handle,data_in,data_len);
     if(ret != SDR_OK)
     {
         printf("HashUpdate error!\n");
         exit(-1);
     }
+
+
     ret = SDF_HashFinal(session_handle,data_out,&data_out_len);
     if(ret != SDR_OK)
     {
@@ -105,13 +114,29 @@ void *sm3test(void *session_handle)
         exit(-1);
     }
     
+//-----------2
+    ret = SDF_HashUpdate(session_new,data_in,data_len);
+    if(ret != SDR_OK)
+    {
+        printf("HashUpdate error!\n");
+        exit(-1);
+    }
+
+
+    ret = SDF_HashFinal(session_new,data_out,&data_out_len);
+    if(ret != SDR_OK)
+    {
+        printf("HashFinal is error!\n");
+        exit(-1);
+    }
     // printf("Out Data:\n");
     // for(i=0;i<data_out_len;i++)
     // {
     //     printf("%02X ",data_out[i]);
     // }
     // printf("\n");
-
+    
+    ret = SDF_CloseSession(session_new);
 
 
 }
@@ -291,18 +316,19 @@ void main()
     }
 
    
-    for(i=1;i<SOCKET_NUM;i++)
-    {
-        ret = SDF_OpenSession(pdev_handle,&psession_handle[i]);
+    // for(i=1;i<SOCKET_NUM;i++)
+    // {
+    //     ret = SDF_OpenSession(pdev_handle,&psession_handle[i]);
     
-        printf("ssid %d\n",i);
-        pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
-    }
-    //sm3test(psession_handle[1]);
+    //     printf("ssid %d\n",i);
+    //     pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
+    // }
+    SDF_OpenSession(pdev_handle,&psession_handle[1]);
+    sm3test(psession_handle[1]);
     //sm4_test(psession_handle[1]);
     //sign_verify_test(psession_handle[1]);
     //generate_agreement_data_and_key_test(psession_handle[1]);
-    pthread_join(thread_id[1],NULL);
+    //(thread_id[1],NULL);
     for(i=1;i<SOCKET_NUM;i++)
     {
         ret = SDF_CloseSession(psession_handle[i]);

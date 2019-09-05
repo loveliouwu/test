@@ -34,6 +34,7 @@ enum MINOR_CMD_ENUM{
     HASH_INIT,
     HASH_UPDATE,
     HASH_FINAL,
+    HASH_COPY,
     ECC_SIGN,
     ECC_VERIGY = 10,
     ECC_EX_VERIFY,//
@@ -101,12 +102,12 @@ typedef struct packet_head{
     int major_cmd;
     int minor_cmd;
     int status;
-    int len;//数据长度，不包含包头
+    int len;//数据长度，包含包头
     guid device_guid;
     void *session_key_list;//未用到
     void *socket_list;//未用到
     void *server_session_handle;//服务器维护的会话链表中的会话句柄
-}packet_head;//大小５６字节
+}packet_head;//大小56字节
 
 /*
 SDF算法相关的数据结构

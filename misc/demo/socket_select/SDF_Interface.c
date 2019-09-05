@@ -686,6 +686,120 @@ int SDF_HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiH
     return SDR_OK;
 }
 
+int SDF_Hash_Copy(void *hSessionHandle,void **hSessionHandle_out)
+{
+    session_list *psession_handle_in;
+    session_list *psession_handle;
+    packet_head *packet;
+    device *pdev_handle;
+    int ret = 0;
+    int i = 0;
+    if(!hSessionHandle)
+    {
+        COMMON_ERROR("hSessionHandle is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(!hSessionHandle_out)
+    {
+        COMMON_ERROR("hSessionHandle_out is NULL!\n");
+        return SDR_OUTARGERR;
+    }
+    psession_handle = (session_list *)hSessionHandle;
+    pdev_handle = (device *)(psession_handle->sess.pdev_handle);//找到设备句柄
+    psession_handle_in = (session_list *)hSessionHandle;
+    psession_handle = (session_list *)malloc(sizeof(session_list));
+    if(!psession_handle)
+    {
+        COMMON_ERROR("malloc session_handle error!\n");
+        psession_handle = NULL;
+        return SDR_UNKNOWERR;
+    }
+    memset(psession_handle,0,sizeof(session_list));
+
+    //申请数据BUFF用于接收和发送数据
+    psession_handle->sess.send_buff = malloc(MAX_SEND_BUFF_LEN);
+    if(psession_handle->sess.send_buff == NULL)
+    {
+        printf("malloc send_buff handle error\n");
+        free(psession_handle);
+        return SDR_UNKNOWERR;
+    }
+    memset(psession_handle->sess.send_buff,0,MAX_SEND_BUFF_LEN);
+    psession_handle->sess.recv_buff = malloc(MAX_SEND_BUFF_LEN);
+    if(psession_handle->sess.recv_buff == NULL)
+    {
+        printf("malloc recv_buff handle error\n");
+        free(psession_handle->sess.send_buff);
+        free(psession_handle);
+        return SDR_UNKNOWERR;
+    }
+    memset(psession_handle->sess.recv_buff,0,MAX_SEND_BUFF_LEN);
+
+    packet = (packet_head*)(psession_handle_in->sess.send_buff);
+    packet->major_cmd = control_cmd;
+    packet->minor_cmd = HASH_COPY;
+    packet->status = 0;
+    packet->len = sizeof(packet_head);
+    packet->device_guid = pdev_handle->GUID;
+
+    ret = socket_send(psession_handle_in,packet->len);  
+    packet = (packet_head*)(psession_handle_in->sess.recv_buff);
+    //COMMON_DEBUG("major_cmd:%d,\nminor_cmd:%d,\nlen:%d,\nread_len:%d\n",packet->major_cmd,packet->minor_cmd,packet->len,ret);
+    if((packet->status != 0) || (ret <= 0))
+    {
+        COMMON_ERROR("get session handle error status = %d\n",packet->status);
+        free(psession_handle->sess.recv_buff);
+        free(psession_handle->sess.send_buff);
+        free(psession_handle);
+        return SDR_OPENSESSION;
+    }
+    //i=1
+    for(i = 1;i<SOCKET_NUM;i++)//寻找未用到的socket绑定到会话
+    {
+        if(pdev_handle->fd_flag[i] == 0)
+        {
+            pdev_handle->fd_flag[i] = 1;
+            psession_handle->sess.socket_fd = i;//保存索引
+            break;
+        }
+    }
+    if(i == SOCKET_NUM)
+    {
+        COMMON_ERROR("create session_list error\n");
+        free(psession_handle->sess.recv_buff);
+        free(psession_handle->sess.send_buff);
+        free(psession_handle);
+        return SDR_OPENSESSION;
+    }
+
+
+    //维护会话链表
+    if(pdev_handle->session_list_head == NULL)
+    {
+        psession_handle->next = NULL;
+        psession_handle->prev = NULL;
+        pdev_handle->session_list_head = psession_handle;
+        pdev_handle->session_list_head->next = NULL;
+        pdev_handle->session_list_head->prev = NULL;
+        pdev_handle->session_list_end = pdev_handle->session_list_head;
+    }
+    else
+    {
+        psession_handle->prev = pdev_handle->session_list_end;
+        psession_handle->next = NULL;
+        pdev_handle->session_list_end->next = psession_handle;
+        pdev_handle->session_list_end = psession_handle;
+    }
+    packet = (packet_head*)((char *)psession_handle_in->sess.recv_buff+ sizeof(packet_head));
+    psession_handle->sess.session_handle = packet->server_session_handle;//保存服务端会话句柄
+    psession_handle->sess.pdev_handle = (void*)pdev_handle;
+    psession_handle->sess.Dev_GUID = pdev_handle->GUID;
+    *hSessionHandle_out = (void *)psession_handle;
+    return SDR_OK;
+
+}
+
+
 int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom)
 {
     int ret = SDR_OK;
@@ -1592,7 +1706,7 @@ int SDF_ExportEncPublicKey_ECC(
     pexport_key = (Export_pub_key *)((char *)packet + sizeof(packet_head *));
 
     packet->device_guid = psession_handle->sess.Dev_GUID;
-    packet->session_key_list = psession_handle->sess.session_handle;
+    //packet->session_key_list = psession_handle->sess.session_handle;
     packet->major_cmd = server_cmd;
     packet->minor_cmd = EXPORT_ENC_PUB_KEY;
 

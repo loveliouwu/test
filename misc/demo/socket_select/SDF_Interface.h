@@ -126,6 +126,8 @@ int SDF_HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDa
 
 int SDF_HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength);
 
+int SDF_Hash_Copy(void *hSessionHandle,void **hSessionHandle_out);
+
 int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom);
 
 
