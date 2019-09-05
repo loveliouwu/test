@@ -320,23 +320,7 @@ int SDF_CloseSession(void *phSessionHandle)
 }
 
 
-void test(void *hSessionHanlde)
-{
-    packet_head *packet;
-    session_list *psession_handle;
-    char buff[128];
-    memset(buff,88,128);
 
-    psession_handle = (session_list*)hSessionHanlde;
-    packet = (packet_head *)(psession_handle->sess.send_buff);
-    packet->device_guid = psession_handle->sess.Dev_GUID;
-    packet->len = sizeof(packet_head) + 128;
-    packet->server_session_handle = psession_handle->sess.session_handle;
-    packet->minor_cmd = 4;
-    memcpy((void *)packet+sizeof(packet_head),buff,128);
-    socket_send(psession_handle,packet->len);
-    packet = (packet_head*)psession_handle->sess.recv_buff;
-}
 
 
 int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,unsigned int uiAlgID,unsigned char *pucIV,unsigned char *pucData,unsigned int uiDataLength,unsigned char *pucEncData,unsigned int *puiEncDatalength)
@@ -557,7 +541,7 @@ int SDF_Decrypt(void *hSessionHandle,
 
 
 
-int HashInit(void *hSessionHandle)
+int SDF_HashInit(void *hSessionHandle)
 {
     int ret = SDR_OK;
     packet_head *packet;
@@ -592,7 +576,7 @@ int HashInit(void *hSessionHandle)
     return SDR_OK;
 }
 
-int HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLength)
+int SDF_HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLength)
 {
     int ret = SDR_OK;
     packet_head *packet,*packet_out;
@@ -657,7 +641,7 @@ int HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLe
 }
 
 
-int HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength)
+int SDF_HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength)
 {
     int ret = SDR_OK;
     packet_head *packet;
@@ -702,7 +686,7 @@ int HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashL
     return SDR_OK;
 }
 
-int GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom)
+int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom)
 {
     int ret = SDR_OK;
     packet_head *packet;
@@ -750,7 +734,7 @@ int GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *puc
     return SDR_OK;
 }
 
-int GenerateAgreementDataWithECC(void *hSessionHandle,
+int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
                                 unsigned int password_len,
@@ -870,7 +854,7 @@ int GenerateAgreementDataWithECC(void *hSessionHandle,
     return SDR_OK;
 }
 
-int GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
+int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
                                 unsigned int password_len,
@@ -1030,7 +1014,7 @@ int GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
 
 }                                
 
-int GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length)
+int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length)
 {
     int ret = SDR_OK;
     packet_head *packet;
@@ -1088,7 +1072,7 @@ int GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char 
 
 }
 
-int GenerateKeyWith_ECC(void *hSessionHandle,
+int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
@@ -1188,7 +1172,7 @@ int GenerateKeyWith_ECC(void *hSessionHandle,
 }
 
 
-int Sign_ECC(void *hSessionHandle,
+int SDF_Sign_ECC(void *hSessionHandle,
             unsigned int uiISKIndex,
             unsigned char *PassWord,
             unsigned int passwordlen,
@@ -1273,7 +1257,7 @@ int Sign_ECC(void *hSessionHandle,
 }
 
 
-int Verfiy_ECC(void *hSessionHandle,
+int SDF_Verfiy_ECC(void *hSessionHandle,
                 unsigned char *pucData,
                 unsigned int uiDataLength,
                 ECCSignature *pucSignature)
@@ -1333,7 +1317,7 @@ int Verfiy_ECC(void *hSessionHandle,
     return SDR_OK;
 }   
 
-int ExtVerify_ECC(
+int SDF_ExtVerify_ECC(
     void *hSessionHandle,
     ECCrefPublicKey *pucPublicKey,
     unsigned char *pucDataInput,
@@ -1379,7 +1363,7 @@ int ExtVerify_ECC(
 
 }
 
-int Destroy_session_key(
+int SDF_Destroy_session_key(
     void *hSessionHandle,
     void *phKeyHandle
 )

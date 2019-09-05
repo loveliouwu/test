@@ -120,13 +120,13 @@ int SDF_Decrypt(void *hSessionHandle,
                 unsigned int *puiDatalength//out
                 );
 
-int HashInit(void *hSessionHandle);
+int SDF_HashInit(void *hSessionHandle);
 
-int HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLength);
+int SDF_HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLength);
 
-int HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength);
+int SDF_HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength);
 
-int GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom);
+int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom);
 
 
 /*
@@ -142,7 +142,7 @@ Description:使用ECC秘钥协商算法，使用自身协商举兵和相应方�
             [out]   phKey
         
 */
-int GenerateKeyWith_ECC(void *hSessionHandle,
+int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
@@ -166,7 +166,7 @@ OUT:
     pucSponsorTmpPublicKey
     phAgreementHandle
 */
-int GenerateAgreementDataWithECC(void *hSessionHandle,
+int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
                                 unsigned int password_len,
@@ -196,7 +196,7 @@ OUT:
     pucResponsorTmpPublicKey
     phKey
 */
-int GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
+int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
                                 unsigned int password_len,
@@ -212,11 +212,11 @@ int GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 void **phKey);
 
 //输入password,length，输出索引
-int GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length);
+int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length);
 
 
 
-int Sign_ECC(void *hSessionHandle,
+int SDF_Sign_ECC(void *hSessionHandle,
             unsigned int uiISKIndex,
             unsigned char *PassWord,
             unsigned int  passwordlen,
@@ -225,7 +225,7 @@ int Sign_ECC(void *hSessionHandle,
             ECCSignature *pucSignature
             );
 
-int Verfiy_ECC(void *hSessionHandle,
+int SDF_Verfiy_ECC(void *hSessionHandle,
                 unsigned char *pucData,
                 unsigned int uiDataLength,
                 ECCSignature *pucSignature);
@@ -250,7 +250,7 @@ int SDF_GenerateKeyWithIPK_ECC(
     void ** phKeyHandle
 );
 
-int ExtVerify_ECC(
+int SDF_ExtVerify_ECC(
     void *hSessionHandle,
     ECCrefPublicKey *pucPublicKey,
     unsigned char *pucDataInput,
@@ -258,7 +258,7 @@ int ExtVerify_ECC(
     ECCSignature *pucSignature
 );
 
-int Destroy_session_key(
+int SDF_Destroy_session_key(
     void *hSessionHandle,
     void *phKeyHandle
 );

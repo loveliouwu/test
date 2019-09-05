@@ -79,7 +79,7 @@ void *sm3test(void *session_handle)
     unsigned int data_out_len;
     memset(data_in,8,data_len);
     //初始化阶段
-    ret = HashInit(session_handle);
+    ret = SDF_HashInit(session_handle);
     if(ret != SDR_OK)
     {
         printf("HashInit error!\n");
@@ -92,13 +92,13 @@ void *sm3test(void *session_handle)
     // }
     // printf("\n");
 
-    ret = HashUpdate(session_handle,data_in,data_len);
+    ret = SDF_HashUpdate(session_handle,data_in,data_len);
     if(ret != SDR_OK)
     {
         printf("HashUpdate error!\n");
         exit(-1);
     }
-    ret = HashFinal(session_handle,data_out,&data_out_len);
+    ret = SDF_HashFinal(session_handle,data_out,&data_out_len);
     if(ret != SDR_OK)
     {
         printf("HashFinal is error!\n");
@@ -126,7 +126,7 @@ void *generaterandom_test(void *session_handle)
     unsigned int data_len;
 
     data_len = 2;
-    ret = GenerateRandom(session_handle,data_len,buff);
+    ret = SDF_GenerateRandom(session_handle,data_len,buff);
     if(ret != SDR_OK)
     {
         printf("getrandom error!\n");
@@ -140,7 +140,7 @@ void *generaterandom_test(void *session_handle)
     printf("\n");
 
     data_len = 5;
-    ret = GenerateRandom(session_handle,data_len,buff);
+    ret = SDF_GenerateRandom(session_handle,data_len,buff);
     if(ret != SDR_OK)
     {
         printf("getrandom error!\n");
@@ -154,7 +154,7 @@ void *generaterandom_test(void *session_handle)
     printf("\n");
 
     data_len = 16;
-    ret = GenerateRandom(session_handle,data_len,buff);
+    ret = SDF_GenerateRandom(session_handle,data_len,buff);
     if(ret != SDR_OK)
     {
         printf("getrandom error!\n");
@@ -168,7 +168,7 @@ void *generaterandom_test(void *session_handle)
     printf("\n");
 
     data_len = 512;
-    ret = GenerateRandom(session_handle,data_len,buff);
+    ret = SDF_GenerateRandom(session_handle,data_len,buff);
     if(ret != SDR_OK)
     {
         printf("getrandom error!\n");
@@ -208,20 +208,20 @@ void *generate_agreement_data_and_key_test(void *session_handle)
     //     exit(-1);
     // }
 
-    ret = GenerateAgreementDataWithECC(session_handle,uiISKIndex_1,pswd_1,pwd_len,uiKeyBits,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&phAgreementHandle);
+    ret = SDF_GenerateAgreementDataWithECC(session_handle,uiISKIndex_1,pswd_1,pwd_len,uiKeyBits,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&phAgreementHandle);
     if(ret != SDR_OK)
     {
         printf("GenerateAgreementDataWithECC is error!\n");
         exit(-1);
     }
-    ret = GenerateAgreementDataAndKeyWithECC(session_handle,uiISKIndex_2,pswd_2,pwd_len,uiKeyBits,responsorID,responsorIDLen,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&responsorpub,&responsortmppub,&sk);
+    ret = SDF_GenerateAgreementDataAndKeyWithECC(session_handle,uiISKIndex_2,pswd_2,pwd_len,uiKeyBits,responsorID,responsorIDLen,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&responsorpub,&responsortmppub,&sk);
     if(ret != 0)
     {
         printf("GenerateAgreementDataAndKeyWithECC is error!\n");
         exit(-1);
     }
 
-    ret = GenerateKeyWith_ECC(session_handle,responsorID,responsorIDLen,&responsorpub,&responsortmppub,phAgreementHandle,&sk1);
+    ret = SDF_GenerateKeyWith_ECC(session_handle,responsorID,responsorIDLen,&responsorpub,&responsortmppub,phAgreementHandle,&sk1);
     if(ret != 0)
     {
         printf("GenerateKeyWith_ECC error!\n");
@@ -241,14 +241,14 @@ void *sign_verify_test(void *session_handle)
     unsigned char sign_data[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
     ECCSignature signature;
 
-    int ret = Sign_ECC(session_handle,uiISKIndex,pswd,pswd_len,sign_data,32,&signature);
+    int ret = SDF_Sign_ECC(session_handle,uiISKIndex,pswd,pswd_len,sign_data,32,&signature);
     if(ret != SDR_OK)
     {
         printf("sign error!\n");
         exit(-1);
     }
 
-    ret = Verfiy_ECC(session_handle,sign_data,32,&signature);
+    ret = SDF_Verfiy_ECC(session_handle,sign_data,32,&signature);
     if(ret != SDR_OK)
     {
         printf("verify error!\n");
