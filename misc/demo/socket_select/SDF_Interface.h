@@ -101,17 +101,18 @@ int SDF_OpenSession(void *phDeviceHandle,void **phSessionHandle);
 
 int SDF_CloseSession(void *phSessionHandle);
 
-int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,
-                unsigned int uiAlgID,
-                unsigned char *pucIV,
-                unsigned char *pucData,//in
-                unsigned int uiDataLength,//in
-                unsigned char *pucEncData,//out
-                unsigned int *puiEncDatalength//out
+int SDF_Encrypt(void *hSessionHanlde,
+                unsigned char *Key,//16字节秘钥的地址
+                unsigned int uiAlgID,//算法ID
+                unsigned char *pucIV,//IV，16字节
+                unsigned char *pucData,//in 加密原数据
+                unsigned int uiDataLength,//in  加密数据长度
+                unsigned char *pucEncData,//out 加密密文存放地址
+                unsigned int *puiEncDatalength//out 密文长度存放地址
                 );
 
 int SDF_Decrypt(void *hSessionHandle,
-                void *phKeyHandle,
+                unsigned char *Key,//16字节秘钥的地址
                 unsigned int uiAlgID,
                 unsigned char *pucIV,
                 unsigned char *pucEncData,//in
@@ -133,24 +134,27 @@ int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char 
 
 /*
 Function:GenerateKeyWith_ECC
-Description:使用ECC秘钥协商算法，使用自身协商举兵和相应方的协商参数
+Description:使用ECC秘钥协商算法，使用自身协商句柄和响应方的协商参数
             计算会话秘钥，同时返回会话秘钥
 Ａrgs:      [in]    hSessionHandle:会话句柄
-            [in]    pucResponseID
-            [in]    uiResponseIDLength
-            [in]    pucResponsePublicKey
-            [in]    pucResponseTmpPublicKey
-            [in]    phAgreementHandle
-            [out]   phKey
-        
+            [in]    pucResponseID 响应方ID
+            [in]    uiResponseIDLength  响应方id长度
+            [in]    pucResponsePublicKey    响应方公钥
+            [in]    pucResponseTmpPublicKey 响应方临时公钥
+            [in]    phAgreementHandle   发起方写生句柄
+            [out]   phKey   会话秘钥
 */
 int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
+                        unsigned char *Password,
+                        unsigned int password_len,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
                         ECCrefPublicKey *pucResponseTmpPublicKey,
                         void *phAgreementHandle,
-                        void **phKey);
+                        unsigned char *session_key,
+                        unsigned int *session_key_len
+                        );
 
 
 /*
@@ -169,9 +173,7 @@ OUT:
     phAgreementHandle
 */
 int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
-                                unsigned int uiISKIndex, 
-                                unsigned char *PassWord,
-                                unsigned int password_len,
+                                unsigned int uiISKIndex,
                                 unsigned int uiKeyBits,
                                 unsigned char *pucSponsorID,
                                 unsigned int uiSponsorIDLength,
@@ -211,7 +213,8 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 ECCrefPublicKey *pucSponsorTmpPublicKey,
                                 ECCrefPublicKey *pucResponsorPublicKey,
                                 ECCrefPublicKey *pucResponsorTmpPublicKey,
-                                void **phKey);
+                                unsigned char *session_key,
+                                unsigned int *session_key_len);
 
 //输入password,length，输出索引
 int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length);
@@ -222,9 +225,9 @@ int SDF_Sign_ECC(void *hSessionHandle,
             unsigned int uiISKIndex,
             unsigned char *PassWord,
             unsigned int  passwordlen,
-            unsigned char *pucData,
-            unsigned int uiDataLength,
-            ECCSignature *pucSignature
+            unsigned char *pucData,//in 待签名数据
+            unsigned int uiDataLength,//in 待签名数据长度
+            ECCSignature *pucSignature//out 签名值
             );
 
 int SDF_Verfiy_ECC(void *hSessionHandle,

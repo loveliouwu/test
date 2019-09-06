@@ -16,7 +16,7 @@ void *sm4_test(void *session_handle)
     session_list *psession_handle = session_handle;
 
     unsigned char dec_data[128];
-    int phKeyHandle = 1;
+    unsigned char phKeyHandle[16];
     unsigned int uiAlgID = SGD_SM4_ECB;
     unsigned char pucIV[16];
     unsigned int recv_len;
@@ -36,7 +36,7 @@ void *sm4_test(void *session_handle)
     }
         
     //printf("--------thread_fd_index = %d\n",psession_handle->sess.socket_fd);
-    SDF_Encrypt(psession_handle,&phKeyHandle,uiAlgID,pucIV,enc_data,128,dec_data,&recv_len);
+    SDF_Encrypt(psession_handle,phKeyHandle,uiAlgID,pucIV,enc_data,128,dec_data,&recv_len);
     // printf("Encrypt :\n");
     // for(j=0;j<recv_len;j++)
     // {
@@ -48,7 +48,7 @@ void *sm4_test(void *session_handle)
 
     memset(pucIV,6,16);
     int ret = SDF_Decrypt(psession_handle,
-        &phKeyHandle,
+        phKeyHandle,
         uiAlgID,
         pucIV,
         dec_data,
@@ -224,7 +224,8 @@ void *generate_agreement_data_and_key_test(void *session_handle)
     unsigned int sponsorIDLen = 15;
     unsigned char responsorID[17] = "zyxxresponsortest";
     unsigned int responsorIDLen = 17;
-    void *sk,*sk1;
+    unsigned char sk[128];
+    unsigned int sk_len;
 
     // ret = GenerateKeyPair_ECC(session_handle,&uiISKIndex_1,pswd_1,pwd_len);
     // if(ret != SDR_OK)
@@ -233,28 +234,25 @@ void *generate_agreement_data_and_key_test(void *session_handle)
     //     exit(-1);
     // }
 
-    ret = SDF_GenerateAgreementDataWithECC(session_handle,uiISKIndex_1,pswd_1,pwd_len,uiKeyBits,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&phAgreementHandle);
+    ret = SDF_GenerateAgreementDataWithECC(session_handle,uiISKIndex_1,uiKeyBits,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&phAgreementHandle);
     if(ret != SDR_OK)
     {
         printf("GenerateAgreementDataWithECC is error!\n");
         exit(-1);
     }
-    ret = SDF_GenerateAgreementDataAndKeyWithECC(session_handle,uiISKIndex_2,pswd_2,pwd_len,uiKeyBits,responsorID,responsorIDLen,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&responsorpub,&responsortmppub,&sk);
+    ret = SDF_GenerateAgreementDataAndKeyWithECC(session_handle,uiISKIndex_2,pswd_2,pwd_len,uiKeyBits,responsorID,responsorIDLen,sponsorID,sponsorIDLen,&sponsorpub,&sponsortmppub,&responsorpub,&responsortmppub,sk,&sk_len);
     if(ret != 0)
     {
         printf("GenerateAgreementDataAndKeyWithECC is error!\n");
         exit(-1);
     }
 
-    ret = SDF_GenerateKeyWith_ECC(session_handle,responsorID,responsorIDLen,&responsorpub,&responsortmppub,phAgreementHandle,&sk1);
+    ret = SDF_GenerateKeyWith_ECC(session_handle,pswd_1,pwd_len,responsorID,responsorIDLen,&responsorpub,&responsortmppub,phAgreementHandle,sk,&sk_len);
     if(ret != 0)
     {
         printf("GenerateKeyWith_ECC error!\n");
         exit(-1);
     }
-    free(phAgreementHandle);
-    free(sk);
-    free(sk1);
 
 }
 
@@ -324,10 +322,10 @@ void main()
     //     pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
     // }
     SDF_OpenSession(pdev_handle,&psession_handle[1]);
-    sm3test(psession_handle[1]);
+    //sm3test(psession_handle[1]);
     //sm4_test(psession_handle[1]);
     //sign_verify_test(psession_handle[1]);
-    //generate_agreement_data_and_key_test(psession_handle[1]);
+    generate_agreement_data_and_key_test(psession_handle[1]);
     //(thread_id[1],NULL);
     for(i=1;i<SOCKET_NUM;i++)
     {

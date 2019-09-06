@@ -36,20 +36,14 @@ enum MINOR_CMD_ENUM{
     HASH_FINAL,
     HASH_COPY,
     ECC_SIGN,
-    ECC_VERIGY = 10,
+    ECC_VERIGY,
     ECC_EX_VERIFY,//
     GET_RANDOM,
     GENERATE_KEY_PAIR,
     GENERATE_AGREEMENT_PARA,
-    GENERATE_AGREEMENT_PARA_KEY = 15,
+    GENERATE_AGREEMENT_PARA_KEY,
     GENERATE_KEY_ECC,
-    GET_PRIVATE_KEY_RIGHT,
     DESTORY_SESSION_KEY,
-
-    RELEASE_PRIVATE_KEY_RIGHT,
-    EXPORT_SIGN_PUB_KEY,
-    EXPORT_ENC_PUB_KEY,
-
 };
 
 
@@ -115,7 +109,7 @@ SDF算法相关的数据结构
 typedef struct  symalg_cipher
 {
     unsigned int alg_id;
-    unsigned char key_handle[16];//lyp　待确认
+    unsigned char key_handle[16];//
     unsigned char IV[IV_LENGHT];
     unsigned int data_len;
     unsigned char data[0];
@@ -150,8 +144,6 @@ typedef struct sdf_gen_agreement_par_handle_
 
 typedef struct gen_agreement_para_st{
     unsigned int key_index;
-    unsigned int password_len;
-    unsigned char password[16];
     unsigned int key_bits;
     unsigned int ID_length;
     unsigned char sponsor_ID[MAX_ID_LEN];
@@ -175,18 +167,22 @@ typedef struct gen_agreement_key
     unsigned char sponsor_tmp_pubkey[PUB_KEY_LEN];
     unsigned char response_pubkey[PUB_KEY_LEN];
     unsigned char response_tmp_pubkey[PUB_KEY_LEN];
-    unsigned int key_handle;
+    unsigned int session_key_out_len;
+    unsigned char session_key[0];
 }Gen_agreement_key;
 
 
 /*计算会话秘钥*/
 typedef struct cipher_agreement_key{
+    unsigned int password_len;
+    unsigned char password[PIN_MAX_LEN];
     unsigned int ID_Length;
     unsigned char response_ID[MAX_ID_LEN];
     unsigned char pubkey[PUB_KEY_LEN];
     unsigned char tmp_pubkey[PUB_KEY_LEN];
-    unsigned char out_index;
     sdf_gen_agreement_par_handle key_handle;
+    unsigned int session_key_out_len;
+    unsigned char session_key[0];
 }Cipher_agreement_key;
 
 

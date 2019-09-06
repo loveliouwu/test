@@ -323,7 +323,7 @@ int SDF_CloseSession(void *phSessionHandle)
 
 
 
-int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,unsigned int uiAlgID,unsigned char *pucIV,unsigned char *pucData,unsigned int uiDataLength,unsigned char *pucEncData,unsigned int *puiEncDatalength)
+int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,unsigned char *pucIV,unsigned char *pucData,unsigned int uiDataLength,unsigned char *pucEncData,unsigned int *puiEncDatalength)
 {
     packet_head *packet;
     session_list *psession_handle;
@@ -337,9 +337,9 @@ int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,unsigned int uiAlgID,unsi
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(!phKeyHandle)
+    if(!Key)
     {
-        COMMON_ERROR("phKeyHandle is NULL!\n");
+        COMMON_ERROR("Key is NULL!\n");
         return SDR_INARGERR;
     }
     if((uiAlgID != SGD_SM4_ECB) && (uiAlgID != SGD_SM4_CBC))
@@ -398,7 +398,7 @@ int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,unsigned int uiAlgID,unsi
             data_len = MAX_SEND_BUFF_LEN - sizeof(packet_head) - sizeof(symalg_cipher);         
         }
         packet->len = data_len + sizeof(symalg_cipher);
-        memcpy(enc_data.key_handle,phKeyHandle,16);
+        memcpy(enc_data.key_handle,Key,16);
         //enc_data.key_handle = *(unsigned int *)phKeyHandle;
         enc_data.data_len = data_len;
         enc_data.alg_id = uiAlgID;
@@ -430,7 +430,7 @@ int SDF_Encrypt(void *hSessionHanlde,void *phKeyHandle,unsigned int uiAlgID,unsi
 
 
 int SDF_Decrypt(void *hSessionHandle,
-            void *phKeyHandle,
+            unsigned char *Key,
             unsigned int uiAlgID,
             unsigned char *pucIV,
             unsigned char *pucEncData,
@@ -450,9 +450,9 @@ int SDF_Decrypt(void *hSessionHandle,
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(!phKeyHandle)
+    if(!Key)
     {
-        COMMON_ERROR("phKeyHandle is NULL!\n");
+        COMMON_ERROR("Key is NULL!\n");
         return SDR_INARGERR;
     }
     if((uiAlgID != SGD_SM4_ECB) && (uiAlgID != SGD_SM4_CBC))
@@ -513,7 +513,7 @@ int SDF_Decrypt(void *hSessionHandle,
         }
         dec_data.alg_id = uiAlgID;
         dec_data.data_len = data_len;
-        memcpy(dec_data.key_handle,phKeyHandle,16);
+        memcpy(dec_data.key_handle,Key,16);
         memcpy(dec_data.IV,IV,IV_LENGHT);
 
         packet->len = data_len + sizeof(symalg_cipher) + sizeof(packet_head);
@@ -850,8 +850,6 @@ int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char 
 
 int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
-                                unsigned char *PassWord,
-                                unsigned int password_len,
                                 unsigned int uiKeyBits,
                                 unsigned char *pucSponsorID,
                                 unsigned int uiSponsorIDLength,
@@ -874,16 +872,6 @@ int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
     {
         COMMON_ERROR("Input uiISKIndex more than the max index !\n");
         return SDR_KEYNOTEXIST;
-    }
-    if(!PassWord)
-    {
-        COMMON_ERROR("PassWord is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(password_len > PIN_MAX_LEN)
-    {
-        COMMON_ERROR("password_len is error!\n");
-        return SDR_INARGERR;
     }
     if(uiKeyBits > SM4_BITS || uiKeyBits == 0)
     {
@@ -937,8 +925,6 @@ int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
     pgreement_para->ID_length = uiSponsorIDLength;
     pgreement_para->key_index = uiISKIndex;
     pgreement_para->key_bits = uiKeyBits;
-    pgreement_para->password_len = password_len;
-    memcpy(pgreement_para->password,PassWord,password_len);
     memcpy(pgreement_para->sponsor_ID,pucSponsorID,uiSponsorIDLength);
 
     memcpy((char *)packet + sizeof(packet_head),pgreement_para,sizeof(Gen_agreemen_para));
@@ -981,7 +967,8 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 ECCrefPublicKey *pucSponsorTmpPublicKey,
                                 ECCrefPublicKey *pucResponsorPublicKey,
                                 ECCrefPublicKey *pucResponsorTmpPublicKey,
-                                void **phKey)
+                                unsigned char *session_key,
+                                unsigned int *session_key_len)
 {
     int ret = SDR_OK;
     packet_head *packet;
@@ -1074,9 +1061,14 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
         COMMON_ERROR("pucResponsorPublicKey is NULL!\n");
         return SDR_OUTARGERR;
     }
-    if(!phKey)
+    if(!session_key)
     {
-        COMMON_ERROR("phKey is NULL");
+        COMMON_ERROR("session_key is NULL");
+        return SDR_OUTARGERR;
+    }
+    if(!session_key_len)
+    {
+        COMMON_ERROR("session_key_len is NULL");
         return SDR_OUTARGERR;
     }
     psession_handle = (session_list *)hSessionHandle;
@@ -1085,7 +1077,6 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
     packet->server_session_handle = psession_handle->sess.session_handle;
     packet->major_cmd = server_cmd;
     packet->minor_cmd = GENERATE_AGREEMENT_PARA_KEY;
-    keyhandle = (int *)malloc(sizeof(int));
     pagreement_handle = (Gen_agreement_key *)((char *)packet + sizeof(packet_head));
     pagreement_handle->key_index = uiISKIndex;
     pagreement_handle->key_bits = uiKeyBits;
@@ -1121,9 +1112,8 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
     pucResponsorTmpPublicKey->bits = SM2_BITS;
     memcpy(pucResponsorTmpPublicKey->x,pagreement_handle->response_tmp_pubkey,SM2_BYTES);
     memcpy(pucResponsorTmpPublicKey->y,pagreement_handle->response_tmp_pubkey + SM2_BYTES,SM2_BYTES);
-    *keyhandle = pagreement_handle->key_handle;
-    *phKey = (void *)keyhandle;
-
+    *session_key_len = pagreement_handle->session_key_out_len;
+    memcpy(session_key,pagreement_handle->session_key,pagreement_handle->session_key_out_len);
     return SDR_OK;
 
 }                                
@@ -1187,22 +1177,35 @@ int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned c
 }
 
 int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
+                        unsigned char *Password,
+                        unsigned int password_len,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
                         ECCrefPublicKey *pucResponseTmpPublicKey,
                         void *phAgreementHandle,
-                        void **phKey)
+                        unsigned char *session_key,
+                        unsigned int *session_key_len
+                        )
 {
     int ret = SDR_OK;
     packet_head *packet;
     session_list *psession_handle;
     Cipher_agreement_key *pagreement_handle;
-    char *pkey_handle;
 
     if(!hSessionHandle)
     {
         COMMON_ERROR("hSessionHandle is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(!Password)
+    {
+        COMMON_ERROR("Password is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(password_len > MAX_PWD_KEB)
+    {
+        COMMON_ERROR("password_len error!\n");
         return SDR_INARGERR;
     }
     if(!pucResponseID)
@@ -1240,9 +1243,14 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
         COMMON_ERROR("phAgreementHandle is NULL!\n");
         return SDR_OUTARGERR;
     }
-    if(!phKey)
+    if(!session_key)
     {
-        COMMON_ERROR("phKey is NULL!\n");
+        COMMON_ERROR("session_key is NULL!\n");
+        return SDR_OUTARGERR;
+    }
+    if(!session_key_len)
+    {
+        COMMON_ERROR("session_key_len is NULL!\n");
         return SDR_OUTARGERR;
     }
 
@@ -1254,9 +1262,9 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
     packet->minor_cmd = GENERATE_KEY_ECC;
     pagreement_handle = (Cipher_agreement_key *)((char *)packet + sizeof(packet_head));
     
-    
+    pagreement_handle->password_len = password_len;
+    memcpy(pagreement_handle->password,Password,password_len);
     pagreement_handle->ID_Length = uiResponseIDLength;
-    //pagreement_handle->agreement_handle
     memcpy(pagreement_handle->response_ID,pucResponseID,uiResponseIDLength);
     memcpy(pagreement_handle->pubkey,pucResponsePublicKey->x,SM2_BYTES);
     memcpy(pagreement_handle->pubkey + SM2_BYTES,pucResponsePublicKey->y,SM2_BYTES);
@@ -1276,13 +1284,12 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
     {
         return packet->status;
     }
-    pkey_handle = (char *)malloc(sizeof(char));
     pagreement_handle = (Cipher_agreement_key *)((char *)packet + sizeof(packet_head));
-    memcpy(pkey_handle,&(pagreement_handle->out_index),sizeof(char));
-    *phKey = (void *)pkey_handle;
-
+    memcpy(session_key,&(pagreement_handle->session_key),pagreement_handle->session_key_out_len);
+    *session_key_len = pagreement_handle->session_key_out_len;
+    
+    free(phAgreementHandle);
     return SDR_OK;
-
 }
 
 
@@ -1427,55 +1434,8 @@ int SDF_Verfiy_ECC(void *hSessionHandle,
     {
         return packet->status;
     }
-
     return SDR_OK;
 }   
-
-int SDF_ExtVerify_ECC(
-    void *hSessionHandle,
-    ECCrefPublicKey *pucPublicKey,
-    unsigned char *pucDataInput,
-    unsigned int uiInputLength,
-    ECCSignature *pucSignature)
-{
-    int ret = SDR_OK;
-    packet_head *packet;
-    session_list *psession_handle;
-
-
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    // if(uiAlgID != SGD_SM2 && uiAlgID != SGD_SM2_1)
-    // {
-    //     COMMON_ERROR("uiAlgID is error!\n");
-    //     return SDR_ALGNOTSUPPORT;
-    // }
-    if(!pucPublicKey)
-    {
-        COMMON_ERROR("pucPublicKey is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(!pucDataInput)
-    {
-        COMMON_ERROR("pucDataInput is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiInputLength != SM2_BYTES)
-    {
-        COMMON_ERROR("uiInputLength is error!\n");
-        return SDR_INARGERR;
-    }
-    if(!pucSignature)
-    {
-        COMMON_ERROR("pucSignature is NULL!\n");
-        return SDR_OUTARGERR;
-    }
-
-
-}
 
 int SDF_Destroy_session_key(
     void *hSessionHandle,
@@ -1503,260 +1463,5 @@ int SDF_Destroy_session_key(
 
 
 
-
-
-int SDF_GetPrivateKeyAccessRight(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex,
-    unsigned char * pucPassword,
-    unsigned int uiPwdLength
-)
-{
-    int ret = SDR_OK;
-    packet_head *packet;
-    Private_key_rigth *pget_right;
-    session_list *psession_handle;
-
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiKeyIndex > MAX_KEY_INDEX || uiKeyIndex == 0)
-    {
-        COMMON_ERROR("uiKeyIndex is error!\n");
-        return SDR_INARGERR;
-    }
-    if(!pucPassword)
-    {
-        COMMON_ERROR("pucPassword is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiPwdLength < MIN_PWD_KEB || uiPwdLength > MAX_PWD_KEB)
-    {
-        COMMON_ERROR("uiPwdLength is error!\n");
-        return SDR_INARGERR;
-    }
-
-    psession_handle = (session_list *)hSessionHandle;
-    packet = (packet_head *)psession_handle->sess.send_buff;
-    pget_right = (Private_key_rigth *)((char *)packet + sizeof(packet_head));
-
-    packet->device_guid = psession_handle->sess.Dev_GUID;
-    packet->server_session_handle = psession_handle->sess.session_handle;
-    packet->major_cmd = server_cmd;
-    packet->minor_cmd = GET_PRIVATE_KEY_RIGHT;
-
-    pget_right->key_index = uiKeyIndex;
-    pget_right->pwd_length = uiPwdLength;
-    memcpy(pget_right->passwd,pucPassword,uiPwdLength);
-    
-    packet->len = sizeof(packet_head) + sizeof(Private_key_rigth);
-    ret = socket_send(psession_handle,packet->len);
-    packet = (packet_head *)psession_handle->sess.recv_buff;
-    if(ret <= 0)
-    {
-        COMMON_ERROR("Get private key access right error!\n");
-        return SDR_COMMFAIL;
-    }
-    if(packet->status != SDR_OK)
-    {
-        return packet->status;
-    }
-    return SDR_OK;
-}
-
-int SDF_ReleasePrivateKeyAccessRight(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex
-)
-{
-    int ret = SDR_OK;
-    packet_head *packet;
-    session_list *psession_handle;
-    Private_key_rigth *pget_key;
-
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiKeyIndex < MIN_PWD_KEB || uiKeyIndex > MAX_PWD_KEB)
-    {
-        COMMON_ERROR("uiKeyIndex is error!\n");
-        return SDR_INARGERR;
-    }
-
-    psession_handle = (session_list *)hSessionHandle;
-    packet = (packet_head *)psession_handle->sess.send_buff;
-    pget_key = (Private_key_rigth *)((char *)packet + sizeof(packet_head));
-    
-    packet->device_guid = psession_handle->sess.Dev_GUID;
-    packet->server_session_handle = psession_handle->sess.session_handle;
-    packet->major_cmd = server_cmd;
-    packet->minor_cmd = RELEASE_PRIVATE_KEY_RIGHT;
-
-    pget_key->key_index = uiKeyIndex;
-    
-    packet->len = sizeof(packet_head) + sizeof(Private_key_rigth);
-    ret = socket_send(psession_handle,packet->len);
-    packet = (packet_head *)psession_handle->sess.recv_buff;
-    if(ret <= 0)
-    {
-        COMMON_ERROR("socket_send error!\n");
-        return SDR_COMMFAIL;
-    }
-    if(packet->status != SDR_OK)
-    {
-        COMMON_ERROR("release private key accress right error!\n");
-        return packet->status;
-    }
-    return SDR_OK;
-
-}
-
-
-int SDF_ExportSignPublicKey_ECC(
-    void * hSessionHandle,
-    unsigned int uiKeyIndex,
-    ECCrefPublicKey * pucPublicKey
-)
-{
-    int ret = SDR_OK;
-    packet_head *packet;
-    session_list *psession_handle;
-    Export_pub_key *pexport_key;
-
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiKeyIndex == 0 || uiKeyIndex > MAX_KEY_INDEX)
-    {
-        COMMON_ERROR("uiKeyIndex is error!\n");
-        return SDR_INARGERR;
-    }
-    if(!pucPublicKey)
-    {
-        COMMON_ERROR("pucPublicKey is NULL!\n");
-        return SDR_OUTARGERR;
-    }
-
-    psession_handle = (session_list *)hSessionHandle;
-    packet = (packet_head *)psession_handle->sess.send_buff;
-    pexport_key = (Export_pub_key *)((char *)packet + sizeof(packet_head));
-
-    packet->device_guid = psession_handle->sess.Dev_GUID;
-    packet->server_session_handle = psession_handle->sess.session_handle;
-    packet->major_cmd = server_cmd;
-    packet->minor_cmd = EXPORT_SIGN_PUB_KEY;
-
-    pexport_key->key_index = uiKeyIndex;
-    packet->len = sizeof(packet_head) + sizeof(Export_pub_key);
-    ret = socket_send(psession_handle,packet->len);
-    packet = (packet_head *)psession_handle->sess.recv_buff;
-    if(ret <= 0)
-    {
-        COMMON_ERROR("export sign pub key is error!\n");
-        return SDR_COMMFAIL;
-    }
-    if(packet->status != 0)
-    {
-        return packet->status;
-    }
-    pexport_key = (Export_pub_key *)((char *)packet + sizeof(packet_head));
-    pucPublicKey->bits = SM2_BITS;
-    memcpy(pucPublicKey->x,pexport_key->pubkey,SM2_BYTES);
-    memcpy(pucPublicKey->y,pexport_key->pubkey + SM2_BYTES,SM2_BYTES);
-
-    return packet->status;
-
-}
-
-int SDF_ExportEncPublicKey_ECC(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex,
-    ECCrefPublicKey *pucPublicKey
-)
-{
-    int ret = SDR_OK;
-    packet_head *packet;
-    session_list *psession_handle;
-    Export_pub_key *pexport_key;
-
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiKeyIndex > MAX_KEY_INDEX || uiKeyIndex == 0)
-    {
-        COMMON_ERROR("uiKeyIndex is error!\n");
-        return SDR_INARGERR;
-    }
-    if(!pucPublicKey)
-    {
-        COMMON_ERROR("pucPublicKey is NULL!|n");
-        return SDR_OUTARGERR;
-    }
-
-    psession_handle = (session_list *)hSessionHandle;
-    packet = (packet_head *)psession_handle->sess.send_buff;
-    pexport_key = (Export_pub_key *)((char *)packet + sizeof(packet_head *));
-
-    packet->device_guid = psession_handle->sess.Dev_GUID;
-    //packet->session_key_list = psession_handle->sess.session_handle;
-    packet->major_cmd = server_cmd;
-    packet->minor_cmd = EXPORT_ENC_PUB_KEY;
-
-    pexport_key->key_index = uiKeyIndex;
-
-    packet->len = sizeof(packet_head) + sizeof(Export_pub_key);
-    ret = socket_send(psession_handle,packet->len);
-    packet = (packet_head *)psession_handle->sess.recv_buff;
-    if(ret <= 0)
-    {
-        COMMON_ERROR("socket_send error!\n");
-        return SDR_COMMFAIL;
-    }
-    if(packet->status != SDR_OK)
-    {
-        COMMON_ERROR("export enc public key error!\n");
-        return packet->status;
-    }
-    pexport_key = (Export_pub_key *)((char *)packet + sizeof(packet_head *));
-    pucPublicKey->bits = SM2_BITS;
-    memcpy(pucPublicKey->x,pexport_key->pubkey,SM2_BYTES);
-    memcpy(pucPublicKey->y,pexport_key->pubkey + SM2_BYTES,SM2_BYTES);
-
-    return SDR_OK;
-
-}
-
-int SDF_GenerateKeyWithIPK_ECC(
-    void * hSessionHandle,
-    unsigned int uiIPKIndex,
-    unsigned int uiKeyBits,
-    ECCCipher * pucKey,
-    void ** phKeyHandle
-)
-{
-    if(!hSessionHandle)
-    {
-        COMMON_ERROR("hSessionHandle is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(uiIPKIndex > MAX_KEY_INDEX || uiIPKIndex == 0)
-    {
-        COMMON_ERROR("uiIPKIndex is error!\n");
-        return SDR_INARGERR;
-    }
-    if(uiKeyBits == 0 || uiKeyBits > SM4_BITS)
-    {
-
-    }
-
-}
 
 
