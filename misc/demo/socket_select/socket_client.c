@@ -10,7 +10,7 @@
 #include"socket_client.h"
 
 
-#define COMMON_DEBUG_LOG
+//#define COMMON_DEBUG_LOG
 #ifdef COMMON_DEBUG_LOG
 #define COMMON_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
 #else 
