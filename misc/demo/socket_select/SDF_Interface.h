@@ -45,11 +45,11 @@
 #define SGD_SM1_OFB   			0x00000108				
 #define SGD_SM1_MAC   			0x00000110				
 
-#define SGD_SF33_ECB    		0x00000201				
-#define SGD_SF33_CBC    		0x00000202				
-#define SGD_SF33_CFB    		0x00000204				
+#define SGD_SF33_ECB    		    0x00000201				
+#define SGD_SF33_CBC    		    0x00000202				
+#define SGD_SF33_CFB    		    0x00000204				
 #define SGD_SF33_OFB   		 	0x00000208			
-#define SGD_SF33_MAC    		0x00000210		
+#define SGD_SF33_MAC    		    0x00000210		
 
 #define SGD_SM4_ECB   			0x00000401				
 #define SGD_SM4_CBC   			0x00000402				
@@ -61,7 +61,7 @@
 #define SGD_ZUC_EIA3   			0x00000802				
 
 
-#define	SGD_SM3 				0x00000001			
+#define	SGD_SM3 				    0x00000001			
 #define	SGD_SHA1 				0x00000002				
 #define	SGD_SHA256 				0x00000004				
 
@@ -92,15 +92,47 @@ typedef struct ECCCipher_st
 }ECCCipher;
 
 
-
+/*****************************************************************************************************************
+ * private F function: 打开设备
+ * args:    [out] phDeviceHandle: 输出的设备句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_OpenDevice(void **phDeviceHandle);
 
+/*****************************************************************************************************************
+ * private F function: 关闭设备
+ * args:    [in] phDeviceHandle: 输入的设备句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_CloseDevice(void *phDeviceHandle);
 
+/*****************************************************************************************************************
+ * private F function: 打开会话
+ * args:    [in] phDeviceHandle: 输出的设备句柄
+* args:    [out] phSessionHandle: 输出的会话句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_OpenSession(void *phDeviceHandle,void **phSessionHandle);
 
+/*****************************************************************************************************************
+ * private F function: 关闭会话
+ * args:    [in] phSessionHandle: 输入的会话句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_CloseSession(void *phSessionHandle);
 
+/*****************************************************************************************************************
+ * private F function: 对称加密
+ * args:    [in] phSessionHandle: 输入的会话句柄
+ * args:    [in] Key: 对称16B密钥地址
+ * args:    [in] uiAlgID: 算法ID
+ * args:    [in] pucIV: 16B IV数据地址
+ * args:    [in] pucData: 待加密数据地址
+ * args:    [in] uiDataLength: 待加密数据长度
+ * args:    [out] pucEncData: 密文数据地址
+ * args:    [out] puiEncDatalength: 密文数据长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_Encrypt(void *hSessionHanlde,
                 unsigned char *Key,//16字节秘钥的地址
                 unsigned int uiAlgID,//算法ID
@@ -111,6 +143,18 @@ int SDF_Encrypt(void *hSessionHanlde,
                 unsigned int *puiEncDatalength//out 密文长度存放地址
                 );
 
+/*****************************************************************************************************************
+ * private F function: 对称解密
+ * args:    [in] phSessionHandle: 输入的会话句柄
+ * args:    [in] Key: 对称16B密钥地址
+ * args:    [in] uiAlgID: 算法ID
+ * args:    [in] pucIV: 16B IV数据地址
+ * args:    [in] pucData: 待加密数据地址
+ * args:    [in] uiDataLength: 待加密数据长度
+ * args:    [out] pucEncData: 密文数据地址
+ * args:    [out] puiEncDatalength: 密文数据长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_Decrypt(void *hSessionHandle,
                 unsigned char *Key,//16字节秘钥的地址
                 unsigned int uiAlgID,
@@ -121,32 +165,69 @@ int SDF_Decrypt(void *hSessionHandle,
                 unsigned int *puiDatalength//out
                 );
 
+/*****************************************************************************************************************
+ * private F function: HASH运算第一步
+ * args:    [in] hSessionHandle: 输入的会话句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_HashInit(void *hSessionHandle);
 
+/*****************************************************************************************************************
+ * private F function: HASH运算第二步
+ * args:    [in] hSessionHandle: 输入的会话句柄
+ * args:    [in] pucData: 输入的数据地址
+ * args:    [in] uiDataLength: 输入数据长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_HashUpdate(void *hSessionHandle,unsigned char *pucData,unsigned int uiDataLength);
 
+/*****************************************************************************************************************
+ * private F function: HASH运算第三步
+ * args:    [in] hSessionHandle: 输入的会话句柄
+ * args:    [out] pucData: 输出的数据地址
+ * args:    [out] puiHashLength: 输出数据长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_HashFinal(void *hSessionHandle,unsigned char *pucData,unsigned int *puiHashLength);
 
+/*****************************************************************************************************************
+ * private F function: HASH CTX复制，可节省部分hash运算
+ * args:    [in] hSessionHandle: 输入的会话句柄
+ * args:    [out] hSessionHandle_out: 输出的会话句柄
+ * eg:
+第一步：打开设备
+第二步：打开会话1->hash_init（会话1）->hash_update（会话1）->hash_copy（会话1，新会话）->hash_finial（会话1）->关闭会话1
+第三步：hash_finial（新会话）->关闭新会话
+第四步：关闭设备
+第二步和第三步输出值应一致。
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_Hash_Copy(void *hSessionHandle,void **hSessionHandle_out);
 
+/*****************************************************************************************************************
+ * private F function: 获取随机数
+ * args:    [in] hSessionHandle: 输入的会话句柄
+ * args:    [in] uiLength: 输入数据长度
+ * args:    [out] pucRandom: 输出随机数数据
+注释：未做大包处理，根据socket单包传输大小进行测试
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char *pucRandom);
 
 
-/*
-Function:GenerateKeyWith_ECC
-Description:使用ECC秘钥协商算法，使用自身协商句柄和响应方的协商参数
-            计算会话秘钥，同时返回会话秘钥
-Ａrgs:      [in]    hSessionHandle:会话句柄
-            [in]    pucResponseID 响应方ID
-            [in]    uiResponseIDLength  响应方id长度
-            [in]    pucResponsePublicKey    响应方公钥
-            [in]    pucResponseTmpPublicKey 响应方临时公钥
-            [in]    phAgreementHandle   发起方写生句柄
-            [out]   phKey   会话秘钥
-*/
+/*****************************************************************************************************************
+* private F function: 计算会话密钥
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] pucResponseID:响应方ID
+ * args:    [in] uiResponseIDLength :响应方ID长度
+ * args:    [in] pucResponsePublicKey :响应方公钥
+ * args:    [in] pucResponseTmpPublicKey:响应方临时公钥
+ * args:    [in] phAgreementHandle: 密钥协商参数时候得到的密钥协商句柄
+ * args:    [out] out_session_key:会话密钥
+ * args:    [out] out_session_key_len:会话密钥长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
-                        unsigned char *Password,
-                        unsigned int password_len,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
@@ -157,23 +238,24 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
                         );
 
 
-/*
-FUCN:GenerateAgreementDataWithECC
-IN:
-    hSessionHandle
-    uiISKIndex
-    password
-    password_len //小于等于16
-    uiKeyBits
-    pucSponsorID
-    uiSponsorIDLength
-OUT:
-    pucSponsorPublicKey
-    pucSponsorTmpPublicKey
-    phAgreementHandle
-*/
+/*****************************************************************************************************************
+ * private F function: 生成密钥协商参数并输出
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] uiISKIndex :密钥索引
+ * args:    [in] PassWord:密钥私钥保护口令
+ * args:    [in] password_len:密钥私钥保护口令长度
+ * args:    [in] uiKeyBits :协商密钥位数（0-128B,8的倍数）
+ * args:    [in] pucSponsorID:发起方ID
+ * args:    [in] uiSponsorIDLength :发起方ID长度
+ * args:    [out] pucSponsorPublicKey :发起方公钥
+ * args:    [out] pucSponsorTmpPublicKey:发起方临时公钥
+ * args:    [out] phAgreementHandle: 密钥协商句柄
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex,
+                                unsigned char *PassWord,
+                                unsigned int password_len,
                                 unsigned int uiKeyBits,
                                 unsigned char *pucSponsorID,
                                 unsigned int uiSponsorIDLength,
@@ -181,25 +263,25 @@ int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 ECCrefPublicKey *pucSponsorTmpPublicKey,
                                 void **phAgreementHandle);
 
-/*
-FUCN:GenerateAgreementDataAndKeyWithECC
-IN:
-    hSessionHandle
-    uiISKIndex
-    password
-    password_len //小于等于16
-    uiKeyBits
-    pucSponsorID
-    uiSponsorIDLength
-    uiResponsorIDLength
-    puiResponsorID
-    pucSponsorPublickey
-    pucSponsorTmpPublickey
-OUT:
-    pucResponsorPublicKey
-    pucResponsorTmpPublicKey
-    phKey
-*/
+/*****************************************************************************************************************
+* private F function: 产生协商数据并计算会话密钥
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] uiISKIndex :密钥索引
+ * args:    [in] PassWord:密钥私钥保护口令
+ * args:    [in] password_len:密钥私钥保护口令长度
+ * args:    [in] uiKeyBits :协商密钥位数（0-128B,8的倍数）
+ * args:    [in] pucResponsorID:响应方ID
+ * args:    [in] uiResponsorIDLength :响应方ID长度
+ * args:    [in] pucSponsorID:发起方ID
+ * args:    [in] uiSponsorIDLength :发起方ID长度
+ * args:    [in] pucSponsorPublicKey :发起方公钥
+ * args:    [in] pucSponsorTmpPublicKey:发起方临时公钥
+ * args:    [out] pucResponsorPublicKey :响应方公钥
+ * args:    [out] pucResponsorTmpPublicKey:响应方临时公钥
+ * args:    [out] session_key:会话密钥
+ * args:    [out] session_key_len:会话密钥长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
                                 unsigned char *PassWord,
@@ -216,45 +298,45 @@ int SDF_GenerateAgreementDataAndKeyWithECC(void *hSessionHandle,
                                 unsigned char *session_key,
                                 unsigned int *session_key_len);
 
-//输入password,length，输出索引
-int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length);
+/*****************************************************************************************************************
+ * private F function: 产生ECC密钥对并输出
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [out] index :生成的密钥索引
+ * args:    [in] password :私钥保护口令
+ * args:    [in] password_len :私钥保护口令长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
+int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int password_len);
 
-
-
+/*****************************************************************************************************************
+ * private F function: 使用内部ECC私钥对数据进行签名运算
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] uiISKIndex :密钥索引
+ * args:    [in] PassWord :私钥保护口令
+ * args:    [in] passwordlen :私钥保护口令长度
+ * args:    [in] pucData :待签名数据
+ * args:    [in] uiDataLength :待签名数据长度
+ * args:    [out] pucSignature: 签名值
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_Sign_ECC(void *hSessionHandle,
-            unsigned int uiISKIndex,
-            unsigned char *PassWord,
-            unsigned int  passwordlen,
-            unsigned char *pucData,//in 待签名数据
+            unsigned int uiISKIndex,//秘钥索引
+            unsigned char *PassWord,//密码
+            unsigned int  passwordlen,//密码长度
+            unsigned char *pucData,//in 
             unsigned int uiDataLength,//in 待签名数据长度
             ECCSignature *pucSignature//out 签名值
             );
 
-int SDF_Verfiy_ECC(void *hSessionHandle,
-                unsigned char *pucData,
-                unsigned int uiDataLength,
-                ECCSignature *pucSignature);
-
-int SDF_ExportSignPublicKey_ECC(
-    void * hSessionHandle,
-    unsigned int uiKeyIndex,
-    ECCrefPublicKey * pucPublicKey
-);
-
-int SDF_ExportEncPublicKey_ECC(
-    void *hSessionHandle,
-    unsigned int uiKeyIndex,
-    ECCrefPublicKey *pucPublicKey
-);
-
-int SDF_GenerateKeyWithIPK_ECC(
-    void * hSessionHandle,
-    unsigned int uiIPKIndex,
-    unsigned int uiKeyBits,
-    ECCCipher * pucKey,
-    void ** phKeyHandle
-);
-
+/*****************************************************************************************************************
+ * private F function: 使用外部ECC公钥对数据进行验证运算
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] pucPublicKey :输入外部公钥
+ * args:    [in] pucDataInput :输入hash e值地址
+ * args:    [in] uiInputLength :输入hash e值数据长度
+ * args:    [in] pucSignature:签名数据
+ * return: SDF返回值
+ ******************************************************************************************************************/
 int SDF_ExtVerify_ECC(
     void *hSessionHandle,
     ECCrefPublicKey *pucPublicKey,
@@ -263,12 +345,42 @@ int SDF_ExtVerify_ECC(
     ECCSignature *pucSignature
 );
 
-int SDF_Destroy_session_key(
+/*****************************************************************************************************************
+ * private F function: 导出ECC签名公钥
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] uiKeyIndex :密钥索引
+ * args:    [out] pucPublicKey  :输出公钥
+ * return: SDF返回值
+ ******************************************************************************************************************/
+int SDF_ExportSignPublicKey_ECC(
+    void * hSessionHandle,
+    unsigned int uiKeyIndex,
+    ECCrefPublicKey * pucPublicKey
+);
+
+/*****************************************************************************************************************
+ * private F function: 导出ECC加密公钥
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] uiKeyIndex :密钥索引
+ * args:    [out] pucPublicKey  :输出公钥
+ * return: SDF返回值
+ ******************************************************************************************************************/
+int SDF_ExportEncPublicKey_ECC(
     void *hSessionHandle,
-    void *phKeyHandle
+    unsigned int uiKeyIndex,
+    ECCrefPublicKey *pucPublicKey
 );
 
 
+/*****************************************************************************************************************
+ * private F function: 销毁ECC密钥
+ * args:    [in] hSessionHandle :会话句柄
+ * args:    [in] index :生成的密钥索引
+ * args:    [in] password :私钥保护口令
+ * args:    [in] password_len :私钥保护口令长度
+ * return: SDF返回值
+ ******************************************************************************************************************/
+int SDF_DeleteKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length);
 
 
 #endif

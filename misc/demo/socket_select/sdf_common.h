@@ -19,8 +19,6 @@
 
 #define PIN_MIN_LEN                 (0)
 #define PIN_MAX_LEN                 (16)
-#define MAX_PWD_KEB                 (32)
-#define MIN_PWD_KEB                 (8)
 
 
 //服务类命令
@@ -40,10 +38,10 @@ enum MINOR_CMD_ENUM{
     ECC_EX_VERIFY,//
     GET_RANDOM,
     GENERATE_KEY_PAIR,
+    DELETE_KEY_PAIR,
     GENERATE_AGREEMENT_PARA,
     GENERATE_AGREEMENT_PARA_KEY,
     GENERATE_KEY_ECC,
-    DESTORY_SESSION_KEY,
 };
 
 
@@ -144,6 +142,8 @@ typedef struct sdf_gen_agreement_par_handle_
 
 typedef struct gen_agreement_para_st{
     unsigned int key_index;
+    unsigned int password_len;
+    unsigned char password[PIN_MAX_LEN];
     unsigned int key_bits;
     unsigned int ID_length;
     unsigned char sponsor_ID[MAX_ID_LEN];
@@ -174,8 +174,6 @@ typedef struct gen_agreement_key
 
 /*计算会话秘钥*/
 typedef struct cipher_agreement_key{
-    unsigned int password_len;
-    unsigned char password[PIN_MAX_LEN];
     unsigned int ID_Length;
     unsigned char response_ID[MAX_ID_LEN];
     unsigned char pubkey[PUB_KEY_LEN];
@@ -186,7 +184,7 @@ typedef struct cipher_agreement_key{
 }Cipher_agreement_key;
 
 
-/*生成密钥对*/
+/*生成或销毁密钥对*/
 typedef struct Generate_key_pair_st
 {
     unsigned int index;
@@ -206,29 +204,12 @@ typedef struct Sign_Verify_ECC_st
     unsigned char sign[64];
 }Sign_Verify_ECC;
 
-/*私钥使用权限*/
-typedef struct private_key_right_st
+/*外部验签*/
+typedef struct sdf_extern_ecc_verify_
 {
-    unsigned int key_index;
-    unsigned int pwd_length;
-    unsigned char passwd[MAX_PWD_KEB];
-}Private_key_rigth;
-
-
-/*导出ECC签名、加密公钥*/
-typedef struct export_ecc_key
-{
-    unsigned int key_index;
-    unsigned int status;
-    unsigned char pubkey[PUB_KEY_LEN];
-}Export_pub_key;
-
-/*生成会话秘钥并用内部ECC公钥加密输出*/
-
-
-/*销毁会话秘钥*/
-typedef struct destroy_session_key_st{
-    int key_handle;
-}destroy_session_key;
+	unsigned char in_hash_data[32];
+	unsigned char in_pub_key[64];
+	unsigned char in_out_r_s_value[64];
+}sdf_extern_ecc_verify;
 
 #endif

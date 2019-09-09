@@ -850,6 +850,8 @@ int SDF_GenerateRandom(void *hSessionHandle,unsigned int uiLength,unsigned char 
 
 int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
                                 unsigned int uiISKIndex, 
+                                unsigned char *Password,
+                                unsigned int password_len,
                                 unsigned int uiKeyBits,
                                 unsigned char *pucSponsorID,
                                 unsigned int uiSponsorIDLength,
@@ -881,6 +883,16 @@ int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
     if(uiKeyBits % 8)
     {
         COMMON_ERROR("Input uiKeuBits Err!\n");
+        return SDR_INARGERR;
+    }
+        if(!Password)
+    {
+        COMMON_ERROR("Password is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(password_len > PIN_MAX_LEN || password_len <= PIN_MIN_LEN)
+    {
+        COMMON_ERROR("password_len error!\n");
         return SDR_INARGERR;
     }
     if(!pucSponsorID)
@@ -925,6 +937,8 @@ int SDF_GenerateAgreementDataWithECC(void *hSessionHandle,
     pgreement_para->ID_length = uiSponsorIDLength;
     pgreement_para->key_index = uiISKIndex;
     pgreement_para->key_bits = uiKeyBits;
+    pgreement_para->password_len = password_len;
+    memcpy(pgreement_para->password,Password,password_len);
     memcpy(pgreement_para->sponsor_ID,pucSponsorID,uiSponsorIDLength);
 
     memcpy((char *)packet + sizeof(packet_head),pgreement_para,sizeof(Gen_agreemen_para));
@@ -1130,11 +1144,6 @@ int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned c
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(*index > MAX_KEY_INDEX)
-    {
-        COMMON_ERROR("index is more than max_index!\n");
-        return SDR_INARGERR;
-    }
     if(!password)
     {
         COMMON_ERROR("password is NULL!\n");
@@ -1177,8 +1186,6 @@ int SDF_GenerateKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned c
 }
 
 int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
-                        unsigned char *Password,
-                        unsigned int password_len,
                         unsigned char *pucResponseID,
                         unsigned int uiResponseIDLength,
                         ECCrefPublicKey *pucResponsePublicKey,
@@ -1198,16 +1205,7 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(!Password)
-    {
-        COMMON_ERROR("Password is NULL!\n");
-        return SDR_INARGERR;
-    }
-    if(password_len > MAX_PWD_KEB)
-    {
-        COMMON_ERROR("password_len error!\n");
-        return SDR_INARGERR;
-    }
+
     if(!pucResponseID)
     {
         COMMON_ERROR("pucResponseID is NULL!\n");
@@ -1262,8 +1260,6 @@ int SDF_GenerateKeyWith_ECC(void *hSessionHandle,
     packet->minor_cmd = GENERATE_KEY_ECC;
     pagreement_handle = (Cipher_agreement_key *)((char *)packet + sizeof(packet_head));
     
-    pagreement_handle->password_len = password_len;
-    memcpy(pagreement_handle->password,Password,password_len);
     pagreement_handle->ID_Length = uiResponseIDLength;
     memcpy(pagreement_handle->response_ID,pucResponseID,uiResponseIDLength);
     memcpy(pagreement_handle->pubkey,pucResponsePublicKey->x,SM2_BYTES);
@@ -1313,7 +1309,7 @@ int SDF_Sign_ECC(void *hSessionHandle,
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(uiISKIndex > MAX_KEY_INDEX)
+    if(uiISKIndex >= MAX_KEY_INDEX)
     {
         COMMON_ERROR("uiISKIndex is more than the max_index!\n");
         return SDR_INARGERR;
@@ -1323,11 +1319,11 @@ int SDF_Sign_ECC(void *hSessionHandle,
         COMMON_ERROR("PassWord is NULL!\n");
         return SDR_INARGERR;
     }
-    // if(passwordlen < PIN_MIN_LEN || passwordlen > PIN_MAX_LEN)
-    // {
-    //     COMMON_ERROR("passwordlen is error!\n");
-    //     return SDR_INARGERR;
-    // }
+    if(passwordlen <= PIN_MIN_LEN || passwordlen > PIN_MAX_LEN)
+    {
+        COMMON_ERROR("passwordlen is error!\n");
+        return SDR_INARGERR;
+    }
     if(!pucData)
     {
         COMMON_ERROR("pucData is NULL!\n");
@@ -1378,29 +1374,35 @@ int SDF_Sign_ECC(void *hSessionHandle,
 }
 
 
-int SDF_Verfiy_ECC(void *hSessionHandle,
-                unsigned char *pucData,
-                unsigned int uiDataLength,
+int SDF_ExtVerify_ECC(void *hSessionHandle,
+                ECCrefPublicKey *pucPublicKey,
+                unsigned char *pucDataInput,
+                unsigned int uiInputLength,
                 ECCSignature *pucSignature)
 {
     int ret = SDR_OK;
     packet_head *packet;
     session_list *psession_handle;
-    Sign_Verify_ECC *psign_verify;
+    sdf_extern_ecc_verify *psign_verify;
 
     if(!hSessionHandle)
     {
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(!pucData)
+    if(!pucPublicKey)
     {
-        COMMON_ERROR("pucData is NULL!\n");
+        COMMON_ERROR("pucPublicKey is NULL!\n");
         return SDR_INARGERR;
     }
-    if(uiDataLength != SM2_BYTES)
+    if(!pucDataInput)
     {
-        COMMON_ERROR("uiDataLength is NULL!\n");
+        COMMON_ERROR("pucDataInput is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(uiInputLength > 64 || uiInputLength <= 0)
+    {
+        COMMON_ERROR("uiInputLength is error!\n");
         return SDR_INARGERR;
     }
     if(!pucSignature)
@@ -1415,16 +1417,16 @@ int SDF_Verfiy_ECC(void *hSessionHandle,
     packet->major_cmd = server_cmd;
     packet->minor_cmd = ECC_VERIGY;
     
-    psign_verify = (Sign_Verify_ECC *)((char *)packet + sizeof(packet_head));
-    psign_verify->datalen = uiDataLength;
-    memcpy(psign_verify->data,pucData,uiDataLength);
-    memcpy(psign_verify->sign,pucSignature->r,SM2_BYTES);
-    memcpy(psign_verify->sign + SM2_BYTES,pucSignature->s,SM2_BYTES);
+    psign_verify = (sdf_extern_ecc_verify *)((char *)packet + sizeof(packet_head));
+    memcpy(psign_verify->in_pub_key,pucPublicKey->x,SM2_BYTES);
+    memcpy(psign_verify->in_pub_key + SM2_BYTES,pucPublicKey->y,SM2_BYTES);
+    memcpy(psign_verify->in_hash_data,pucDataInput,uiInputLength);
+    memcpy(psign_verify->in_out_r_s_value,pucSignature->r,SM2_BYTES);
+    memcpy(psign_verify->in_out_r_s_value + SM2_BYTES,pucSignature->s,SM2_BYTES);
 
-    packet->len = sizeof(packet_head) + sizeof(Sign_Verify_ECC);
+    packet->len = sizeof(packet_head) + sizeof(sdf_extern_ecc_verify);
     ret = socket_send(psession_handle,packet->len);
     packet = (packet_head *)psession_handle->sess.recv_buff;
-    psign_verify = (Sign_Verify_ECC *)((char *)packet + sizeof(packet_head));
     if(ret <= 0)
     {
         COMMON_ERROR("verify ecc error!\n");
@@ -1437,31 +1439,64 @@ int SDF_Verfiy_ECC(void *hSessionHandle,
     return SDR_OK;
 }   
 
-int SDF_Destroy_session_key(
-    void *hSessionHandle,
-    void *phKeyHandle
-)
+
+
+int SDF_DeleteKeyPair_ECC(void *hSessionHandle,unsigned int *index, unsigned char *password, unsigned int length)
 {
     int ret = SDR_OK;
     packet_head *packet;
     session_list *psession_handle;
-    destroy_session_key *pdestroy_key;
+    Generate_key_pair *pgenerate_key_pair;
 
     if(!hSessionHandle)
     {
         COMMON_ERROR("hSessionHandle is NULL!\n");
         return SDR_INARGERR;
     }
-    if(!phKeyHandle)
+    if(!password)
     {
-        COMMON_ERROR("phKeyHandle is NULL!\n");
+        COMMON_ERROR("password is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(!index)
+    {
+        COMMON_ERROR("index is NULL!\n");
+        return SDR_INARGERR;
+    }
+    if(length < PIN_MIN_LEN || length > PIN_MAX_LEN)
+    {
+        COMMON_ERROR("length is error!\n");
         return SDR_INARGERR;
     }
 
+    psession_handle = (session_list *)hSessionHandle;
+    packet = (packet_head *)psession_handle->sess.send_buff;
+    pgenerate_key_pair = (Generate_key_pair *)((char *)packet + sizeof(packet_head));
+
+    packet->device_guid = psession_handle->sess.Dev_GUID;
+    packet->server_session_handle = psession_handle->sess.session_handle;
+    packet->major_cmd = server_cmd;
+    packet->minor_cmd = DELETE_KEY_PAIR;
+
+    pgenerate_key_pair->index = *index;
+    pgenerate_key_pair->length = length;
+    memcpy(pgenerate_key_pair->password,password,length);
+
+    packet->len = sizeof(packet_head) + sizeof(Gen_agreement_key);
+    ret = socket_send(psession_handle,packet->len);
+    packet = (packet_head *)psession_handle->sess.recv_buff;
+    pgenerate_key_pair = (Generate_key_pair *)((char *)packet + sizeof(packet_head));
+    if(ret <= 0)
+    {
+        COMMON_ERROR("Delete_key_pair ERROR!\n");
+        return SDR_COMMFAIL;
+    }
+    if(packet->status != SDR_OK)
+    {
+        return packet->status;
+    }
+    return SDR_OK;
+
 }
-
-
-
-
 
 
