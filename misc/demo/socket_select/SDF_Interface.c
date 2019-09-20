@@ -8,7 +8,7 @@
 #include"socket_client.h"
 #include"sdf_common.h"
 
-#define COMMON_DEBUG_LOG
+//#define COMMON_DEBUG_LOG
 #ifdef COMMON_DEBUG_LOG
 #define COMMON_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
 #else 
@@ -381,7 +381,7 @@ int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,uns
     packet = (packet_head*)psession_handle->sess.send_buff;
     packet->device_guid = psession_handle->sess.Dev_GUID;
     packet->major_cmd = server_cmd;
-    packet->minor_cmd = 4;//SYM_ENCRYPT;
+    packet->minor_cmd = SYM_ENCRYPT;
     packet->status = SDR_OK;
     packet->server_session_handle = psession_handle->sess.session_handle;
     memcpy(IV,pucIV,IV_LENGHT);
