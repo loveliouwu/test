@@ -90,6 +90,7 @@ int En_queue(sequeue_t *queue,data_t x)
     queue->data[queue->rear] = x.fd;
     queue->data_addr[queue->rear] = x.fd_data;
     pthread_mutex_unlock(&thread_t);
+    
     return 0;
 }
 
@@ -123,7 +124,7 @@ int De_queue_by_fd(sequeue_t *queue,int fd,data_t *data)
     pthread_mutex_lock(&thread_t);
     int i = (queue->front + 1) % N;
     int tmp = (queue->front + 1) % N;
-    while(i <= queue->rear)
+    while(i<= queue->rear)
     {
         if(queue->data[i] == fd)
         {

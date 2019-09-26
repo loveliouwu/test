@@ -17,7 +17,7 @@
 #define PORT 7777	
 #define MAX_LINE 256	//socket数量
 #define MAX_THREAD_NUM	5 //线程数量
-#define MAX_SOCKET_NUM 	5
+#define MAX_SOCKET_NUM 	500
 
 
 pthread_t thread_t[MAX_THREAD_NUM];
@@ -156,7 +156,7 @@ int main(int argc , char **argv)
 		
 	}
 
-	int j = 10;
+	int j = 100000;
 	while(j--)
 	{
 		printf("--%d--:",j);

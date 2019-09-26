@@ -29,7 +29,7 @@
 #define BUFF_SIZE   256
 
 
-#define DEBUG
+//#define DEBUG 
 #ifdef DEBUG
 #define SERVER_DEBUG(fmt,arg...) printf("[DEBUG %s:%s:%d]"fmt,__FILE__,__func__,__LINE__,##arg)
 #else
@@ -100,23 +100,25 @@ void *socket_read_thread(void *data)
         {
             buffer[i] = buffer[i]^orand;
         }
-        SERVER_DEBUG("fd %d read ok\n",fd);
-        ret = En_queue(queue,que_data);
-        if(ret != 0)
+        if((ret = write(fd , buffer , BUFF_SIZE)) != BUFF_SIZE)	
         {
-            SERVER_ERR("en write queue err!\n");
-            free(buffer);
-            continue;
-        }
-        SERVER_DEBUG("fd %d En queue\n",fd);
+            SERVER_ERR("error writing to the sockfd!\n");
+        }//if
+
+
+        // SERVER_DEBUG("fd %d read ok\n",fd);
+        // ret = En_queue(queue,que_data);
+        // if(ret != 0)
+        // {
+        //     SERVER_ERR("en write queue err!\n");
+        //     free(buffer);
+        //     continue;
+        // }
+        // SERVER_DEBUG("fd %d En queue\n",fd);
         // ev.data.fd = fd;
         // ev.events = EPOLLOUT| EPOLLET;	
         // epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev);
         
-        ev_read.data.fd = fd;
-        ev_read.events = EPOLLOUT| EPOLLET;	
-        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev_read);
-        continue;
 
  exit1:   
         ev_read.data.fd = fd;
@@ -125,10 +127,7 @@ void *socket_read_thread(void *data)
         continue;
 
 
-        if((ret = write(fd , buffer , BUFF_SIZE)) != BUFF_SIZE)	
-        {
-            SERVER_ERR("error writing to the sockfd!\n");
-        }//if
+
     }
 
 }
@@ -161,24 +160,27 @@ void *socket_write_thread(void *data)
             continue;
         }
         SERVER_DEBUG("fd %d is ready to write!\n",fd);
-        ret = De_queue_by_fd(queue,fd,&que_data);
-        if(ret != 0)
-        {
-            SERVER_ERR("not find fd %d in queue\n",fd);
-            goto exit;
-        }
-        fd = que_data.fd;
-        buffer = que_data.fd_data;
-        if((ret = write(fd , buffer , BUFF_SIZE)) < 0)	
-        {
-            SERVER_ERR("error writing to the sockfd!\n");
-            ret = En_queue(queue,que_data);
-            if(ret != 0)
-            {
-                SERVER_ERR("En_queue queue error! fd %d\n",fd);
-            }
-            goto exit;
-        }//if
+
+
+
+        // ret = De_queue_by_fd(queue,fd,&que_data);
+        // if(ret != 0)
+        // {
+        //     SERVER_ERR("not find fd %d in queue\n",fd);
+        //     goto exit;
+        // }
+        // fd = que_data.fd;
+        // buffer = que_data.fd_data;
+        // if((ret = write(fd , buffer , BUFF_SIZE)) < 0)	
+        // {
+        //     SERVER_ERR("error writing to the sockfd!\n");
+        //     ret = En_queue(queue,que_data);
+        //     if(ret != 0)
+        //     {
+        //         SERVER_ERR("En_queue queue error! fd %d\n",fd);
+        //     }
+        //     goto exit;
+        // }//if
         //释放资源
         SERVER_DEBUG("fd %d write ok!\n",fd);
         if(buffer != NULL)
