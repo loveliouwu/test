@@ -85,6 +85,14 @@ N=str1.isNull () ; // N=true 未赋值字符串变量
 N=str2.isNull () ; // N=false 只有"\0"的字符串，也不是 Null
 N=str1.isEmpty(); // N=true
 N=str2.isEmpty(); // N=true
+
+#字符串类型转换
+QString str;
+str = "123";
+int num = str.toInt();
+
+int num1 = 100;
+str = QString::number(num1);
 ```
 -- - 
 

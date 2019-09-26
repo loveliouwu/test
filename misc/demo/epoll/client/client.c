@@ -11,11 +11,16 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 
+#define PORT 7777	
+#define MAX_LINE 256	//socket数量
+#define MAX_THREAD_NUM	5 //线程数量
+#define MAX_SOCKET_NUM 	5
 
-#define PORT 7777
-#define MAX_LINE 256
+
+pthread_t thread_t[MAX_THREAD_NUM];
 
 int max(int a , int b)
 {
@@ -48,43 +53,60 @@ ssize_t readline(int fd, char *vptr, size_t maxlen)
 /*普通客户端消息处理函数*/
 void str_cli(int sockfd)
 {
+	printf("start write_read data fd %d\n",sockfd);
 	/*发送和接收缓冲区*/
 	char sendline[MAX_LINE] , recvline[MAX_LINE];
 	//while(fgets(sendline , MAX_LINE , stdin) != NULL)	
-	memset(sendline,0x55,MAX_LINE);
+	memset(sendline,sockfd,MAX_LINE);
 	int i = 0;
-	while(1)
+	int times = 1;
+	while(times--)
 	{
-		write(sockfd , sendline , MAX_LINE);
-
-		bzero(recvline , MAX_LINE);
-		// if(readline(sockfd , recvline , MAX_LINE) == 0)
-		// {
-		// 	perror("server terminated prematurely");
-		// 	exit(1);
-		// }//if
-
+		int ret = 0;
+		printf("pre to read fd %d\n",sockfd);
+		ret = write(sockfd , sendline , MAX_LINE);
+		if(ret <= 0)
+		{
+			perror("write error!");
+			//return;
+			//exit(1);
+		}
+		//printf("write ok fd:%d\n",sockfd);
+		printf("pre to write fd %d\n",sockfd);
 		if(read(sockfd,recvline,MAX_LINE) <= 0)
 		{
 			perror("server terminated prematurely");
-			exit(1);
+			//return;
+			//exit(1);
 		}
 
-
-		for(i=0;i<32;i++)
+		for(i=0;i<16;i++)
 		{
-			printf("%x ",recvline[i]);
+			printf("%X",recvline[i]);
 		}
-		printf("\n");
-		// if(fputs(recvline , stdout) == EOF)
-		// {
-		// 	perror("fputs error");
-		// 	exit(1);
-		// }//if
+		printf(" --%d--\n",sockfd);
 
-		//bzero(sendline , MAX_LINE);
 	}//while
 }
+
+void setNonblocking(int sockfd)
+{
+	int opts;
+    opts=fcntl(sockfd,F_GETFL);
+    if(opts<0)
+    {
+        perror("fcntl(sock,GETFL)");
+        return;
+    }//if
+
+    opts = opts|O_NONBLOCK;
+    if(fcntl(sockfd,F_SETFL,opts)<0)
+    {
+ 		perror("fcntl(sock,SETFL,opts)");
+        return;
+    }//if
+}
+
 
 int main(int argc , char **argv)
 {
@@ -92,40 +114,65 @@ int main(int argc , char **argv)
     int sockfd;
     int ret;
     struct sockaddr_in servaddr;
-
+	int socket_fd_all[MAX_SOCKET_NUM];
     /*判断是否为合法输入*/
-    if(argc != 2)
-    {
-        perror("usage:tcpcli <IPaddress>");
-        exit(1);
-    }//if
+    // if(argc != 2)
+    // {
+    //     perror("usage:tcpcli <IPaddress>");
+    //     exit(1);
+    // }//if
+	int i = 0;
+	for(i=0;i<MAX_SOCKET_NUM;i++)
+	{
+		/*(1) 创建套接字*/
+		if((sockfd = socket(AF_INET , SOCK_STREAM , 0)) == -1)
+		{
+			perror("socket error");
+			exit(1);
+		}//if
 
-    /*(1) 创建套接字*/
-    if((sockfd = socket(AF_INET , SOCK_STREAM , 0)) == -1)
-    {
-        perror("socket error");
-        exit(1);
-    }//if
+		/*(2) 设置链接服务器地址结构*/
+		bzero(&servaddr , sizeof(servaddr));
+		servaddr.sin_family = AF_INET;
+		servaddr.sin_port = htons(PORT);
+		unsigned char ipaddr[64] = "192.168.1.138:7777";
+		if(inet_pton(AF_INET , ipaddr , &servaddr.sin_addr) < 0)
+		{
+			printf("inet_pton error for %s\n",ipaddr);
+			exit(1);
+		}//if
 
-    /*(2) 设置链接服务器地址结构*/
-    bzero(&servaddr , sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(PORT);
+		/*(3) 发送链接服务器请求*/
+		if(connect(sockfd , (struct sockaddr *)&servaddr , sizeof(servaddr)) < 0)
+		{
+			perror("connect error");
+			exit(1);
+		}//if
+		//setNonblocking(sockfd);
+		socket_fd_all[i] = sockfd;
+		printf("create new socket i:%d  fd:%d\n",i,sockfd);
+		// str_cli(socket_fd_all[i]);
+		// close(socket_fd_all[i]);
+		
+	}
 
-    if(inet_pton(AF_INET , argv[1] , &servaddr.sin_addr) < 0)
-    {
-        printf("inet_pton error for %s\n",argv[1]);
-        exit(1);
-    }//if
+	int j = 10;
+	while(j--)
+	{
+		printf("--%d--:",j);
+		i = random()%(MAX_SOCKET_NUM-1);
+		str_cli(socket_fd_all[i]);
+	}
 
-    /*(3) 发送链接服务器请求*/
-    if(connect(sockfd , (struct sockaddr *)&servaddr , sizeof(servaddr)) < 0)
-    {
-        perror("connect error");
-        exit(1);
-    }//if
-
-	/*调用消息处理函数*/
-	str_cli(sockfd);	
+	for(i = 0;i<MAX_SOCKET_NUM-1;i++)
+	{
+		printf("%d:",i);
+		str_cli(socket_fd_all[i]);
+		close(socket_fd_all[i]);
+	}
+	// ret = close(socket_fd_all[MAX_SOCKET_NUM]);
+	// if(ret != 0)
+	// 	printf("closer last one error %d\n",ret);
+	printf("test over!!!\n");
 	exit(0);
 }

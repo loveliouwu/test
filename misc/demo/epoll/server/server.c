@@ -18,12 +18,13 @@
 
 
 #ifndef CONNECT_SIZE
-#define CONNECT_SIZE 256
+#define CONNECT_SIZE 1000
 #endif
 
 #define PORT 7777
 #define MAX_LINE 2048
-#define LISTENQ 20
+#define LISTENQ 1
+#define EVENT_SIZE 20
 
 #define BUFF_SIZE   256
 
@@ -41,13 +42,15 @@
 pthread_mutex_t thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*声明epoll_event结构体变量，ev用于注册事件，数组用于回传要处理的事件*/
-struct epoll_event ev, events[20];
+struct epoll_event ev,ev_write,ev_read, events[EVENT_SIZE];
 int epfd;
 /*队列，用于存放要处理事件的fd*/
 sequeue_t *queue,*queue_read,*queue_write;
 
 /*链表，用于存储将要发送的数据*/
 list_info *plist_info;
+
+
 
 void *socket_read_thread(void *data)
 {
@@ -56,56 +59,69 @@ void *socket_read_thread(void *data)
     int i,ret;
     char orand = 0xaa;
     unsigned char *buffer;
-    data_t list_data;
-
+    data_t que_data;
+    int fd_tmp;
     while(1)
     {
+        
         if(isEmpty_queue(queue_read))
             continue;
-        ret = De_queue(queue_read,&fd);
+        ret = De_queue(queue_read,&que_data);
         if(ret != 0)
         {
             continue;
         }
         buffer = (unsigned char *)malloc(BUFF_SIZE);
-        if(buffer == NULL)
-        {
-            SERVER_ERR("malloc buffer error!\n");
-            ret = En_queue(queue,fd);
-            if(ret != 0)
-            {
-                SERVER_ERR("enqueue error!\n");
-            }
-            continue;
-        }
-        
+        // if(buffer == NULL)
+        // {
+        //     SERVER_ERR("malloc buffer error!\n");
+        //     ret = En_queue(queue_read,que_data);
+        //     if(ret != 0)
+        //     {
+        //         SERVER_ERR("enqueue error!\n");
+        //     }
+        //     free(buffer);
+        //     goto exit1;
+        // }
+        fd = que_data.fd;
+        SERVER_DEBUG("start read fd:%d\n",fd);
         if((read_len = read(fd , buffer , BUFF_SIZE)) <= 0)
         {
-            SERVER_ERR("read error! read_len <= 0 \n");
+            close(fd);  
+            SERVER_ERR("read error! close socket %d !\n\n",fd);
             free(buffer);
+            ev_read.data.fd = fd;
+            ev_read.events = EPOLLOUT| EPOLLET;	
+            epoll_ctl(epfd , EPOLL_CTL_DEL , fd , &ev_read);
             continue;
         }//if
-        SERVER_DEBUG("recv data! %d\n",read_len);
+        que_data.fd_data = buffer;
         for(i = 0;i<BUFF_SIZE;i++)
         {
             buffer[i] = buffer[i]^orand;
         }
-        list_data.fd_data = buffer;
-        list_data.fd = fd;
-
-        pthread_mutex_lock(&thread_mutex);
-        ret = En_double_list(plist_info,&list_data);
-        pthread_mutex_unlock(&thread_mutex);
+        SERVER_DEBUG("fd %d read ok\n",fd);
+        ret = En_queue(queue,que_data);
         if(ret != 0)
         {
-            SERVER_ERR("en err!\n");
+            SERVER_ERR("en write queue err!\n");
             free(buffer);
             continue;
         }
+        SERVER_DEBUG("fd %d En queue\n",fd);
+        // ev.data.fd = fd;
+        // ev.events = EPOLLOUT| EPOLLET;	
+        // epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev);
+        
+        ev_read.data.fd = fd;
+        ev_read.events = EPOLLOUT| EPOLLET;	
+        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev_read);
+        continue;
 
-        ev.data.fd = fd;
-        ev.events = EPOLLOUT| EPOLLET;	
-        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev);	
+ exit1:   
+        ev_read.data.fd = fd;
+        ev_read.events = EPOLLIN| EPOLLET;	
+        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev_read);	
         continue;
 
 
@@ -120,59 +136,113 @@ void *socket_read_thread(void *data)
 void *socket_write_thread(void *data)
 {
     int ret;
-    int fd;
+    int fd,fd_tmp;
     unsigned char *buffer;
     double_list *node;
     data_t que_data;
     while(1)
     {
+        
         if(isEmpty_queue(queue_write))
             continue;
-        ret = De_queue(queue_write,&fd);
+        SERVER_DEBUG("queue_write ");
+        Show_queue(queue_write);
+        ret = De_queue(queue_write,&que_data);
         if(ret != 0)
         {
-            //SERVER_ERR("dequeue error!\n");
+            SERVER_ERR("dequeue error!\n");
             continue;
         }
-        if(fd < 0)
+        fd = que_data.fd;
+        fd_tmp = fd;
+        if(fd <= 0)
         {
             SERVER_ERR("fd error!\n");
             continue;
         }
-        ret = find_node(plist_info,fd,&node);
+        SERVER_DEBUG("fd %d is ready to write!\n",fd);
+        ret = De_queue_by_fd(queue,fd,&que_data);
         if(ret != 0)
         {
-            //En_queue(queue_write,fd);
-            SERVER_ERR("fd is not ready\n");
-            continue;
+            SERVER_ERR("not find fd %d in queue\n",fd);
+            goto exit;
         }
-        buffer = node->data.fd_data;
+        fd = que_data.fd;
+        buffer = que_data.fd_data;
         if((ret = write(fd , buffer , BUFF_SIZE)) < 0)	
         {
             SERVER_ERR("error writing to the sockfd!\n");
-            continue;
+            ret = En_queue(queue,que_data);
+            if(ret != 0)
+            {
+                SERVER_ERR("En_queue queue error! fd %d\n",fd);
+            }
+            goto exit;
         }//if
-        SERVER_DEBUG("write data! %d\n",ret);
-        pthread_mutex_lock(&thread_mutex);
-        ret = De_double_list(plist_info,node);
-        pthread_mutex_unlock(&thread_mutex);
-        if(ret != 0)
-        {
-            SERVER_ERR("de_list error!\n");
-            continue;
-        }
         //释放资源
+        SERVER_DEBUG("fd %d write ok!\n",fd);
         if(buffer != NULL)
             free(buffer);
-        free(node);
+        ev_write.data.fd = fd;
+        ev_write.events = EPOLLIN | EPOLLET;
+        /*修改*/
+        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev_write);
+        continue;
 
+exit:        
+        ev_write.data.fd = fd;
+        ev_write.events = EPOLLOUT | EPOLLET;
+        /*修改*/
+        epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev_write);
+    }
+
+
+}
+
+
+
+void *write_thread(void *data)
+{
+    int ret;
+    int fd;
+    unsigned char *buffer;
+    data_t que_data;
+
+    while(1)
+    {
+        // if(isEmpty_queue(queue_write))
+        //     continue;
+        ret = De_queue(queue_write,&que_data);
+        //SERVER_DEBUG("thread_write running!\n");
+        if(ret != 0)
+        {
+            //SERVER_ERR("dequeue error!\n");
+            //En_queue(queue_write,que_data);
+            continue;
+        }
+        fd = que_data.fd;
+        buffer = que_data.fd_data;
+        if(fd <= 0)
+        {
+            SERVER_ERR("fd error!\n");
+            continue;
+        }
+        printf("write data fd:%d\n",fd);
+        if((ret = write(fd , buffer , BUFF_SIZE)) < 0)	
+        {
+            SERVER_ERR("error writing to the sockfd!\n");
+        }//if
         ev.data.fd = fd;
         ev.events = EPOLLIN | EPOLLET;
         /*修改*/
         epoll_ctl(epfd , EPOLL_CTL_MOD , fd , &ev);
+        // close(fd);
+        // printf("thread close %d\n",fd);
+        //SERVER_DEBUG("thread_write_continue\n");
+        if(buffer)
+            free(buffer);
+        
     }
-
-
 }
 
 
@@ -207,6 +277,10 @@ int main(int argc , char **argv)
 
 	struct sockaddr_in servaddr , cliaddr;
 
+    unsigned char *buffer;
+    data_list list_data;
+    data_t data;
+
 	/*队列初始化*/
     ret = Create_queue(&queue);
     ret = Create_queue(&queue_read);
@@ -240,16 +314,21 @@ int main(int argc , char **argv)
     pthread_t thread_read,thread_write;
     pthread_create(&thread_read,NULL,socket_read_thread,NULL);
     pthread_create(&thread_write,NULL,socket_write_thread,NULL);
-
+    //pthread_create(&thread_write,NULL,write_thread,NULL);
 	/*(4) 进入服务器接收请求死循环*/
+    int num = 0,num2 = 0;
+    unsigned int socket_fds[CONNECT_SIZE];
+    memcpy(&ev_read,&ev,sizeof(ev));
+    memcpy(&ev_write,&ev,sizeof(ev));
 	while(1)
 	{
 		/*等待事件发生*/
-		nfds = epoll_wait(epfd , events , CONNECT_SIZE , -1);
+        //SERVER_DEBUG("waiting fo events!\n");
+		nfds = epoll_wait(epfd , events , EVENT_SIZE , -1);
 		if(nfds <= 0)
 			continue;
 	
-		printf("nfds = %d\n" , nfds);
+		//printf("nfds = %d  \n" , nfds);
 		/*处理发生的事件*/
 		for(i=0 ; i<nfds ; ++i)
 		{
@@ -264,30 +343,62 @@ int main(int argc , char **argv)
 					perror("accept error.\n");
 					exit(1);
 				}//if		
-
-				printf("accpet a new client: %s:%d\n", inet_ntoa(cliaddr.sin_addr) , cliaddr.sin_port);
+                num++;
+				printf("accpet a new client i:%d  fd:%d : %s:%d \n", num-1,connfd,inet_ntoa(cliaddr.sin_addr) , cliaddr.sin_port);
 			
 				/*设置为非阻塞*/
 				setNonblocking(connfd);
 				ev.data.fd = connfd;
 				ev.events = EPOLLIN | EPOLLET;
 				epoll_ctl(epfd , EPOLL_CTL_ADD , connfd , &ev);
-			}//if
-			/*如果是已链接用户，并且收到数据，进行读入*/
-			else if(events[i].events & EPOLLIN){
-
-				if((sockfd = events[i].data.fd) < 0)
-					continue;
-
-                ret = En_queue(queue_read,sockfd);
-                if(ret != 0)
+                socket_fds[num-1] = connfd;
+                int ii = 0;
+                printf("socket:\n");
+                for(ii = 0;ii<num;ii++)
                 {
-                    printf("En_queue error!\n");
+                    printf("%d:%d ",ii,socket_fds[ii]);
+                }
+                printf("\n");
+                /*
+                lyp:第一次连接时触发的是EPOLLIN,所以修改以等待客户端调用write
+                */
+                // ev.data.fd = connfd;
+                // ev.events = EPOLLIN| EPOLLET;	
+                // epoll_ctl(epfd , EPOLL_CTL_MOD , connfd , &ev);	
+			}//if
+			else if(events[i].events & EPOLLIN)/*如果是已链接用户，并且收到数据，进行读入*/
+            {
+				if((sockfd = events[i].data.fd) < 0)
+                {
+                    SERVER_ERR("socket fd error!\n");
                     continue;
                 }
-                SERVER_DEBUG("%d is ready to read!\n",sockfd);
-                continue;
+					
 
+                //buffer = (unsigned char *)malloc(BUFF_SIZE);
+                num2++;
+                printf("recv clint[%d] message: fd:%d\n", num2-1 , sockfd);
+                data.fd = sockfd;
+                data.fd_data = buffer;
+                
+                if(Inor_queue(queue_read,data) == 1)
+                {
+                    SERVER_DEBUG("fd %d is already in queue_read\n",sockfd);
+                    printf("queue_read [%d] " ,sockfd);
+                    Show_queue(queue_read);
+                    continue;
+                }
+                ret = En_queue(queue_read,data);
+                if(ret != 0)
+                {
+                    printf("Enqueue err!\n");
+                }
+                SERVER_DEBUG("%d is ready En_queue_Read\n",sockfd);
+                // ev.data.fd = sockfd;
+                // ev.events = EPOLLOUT| EPOLLET;	
+                // epoll_ctl(epfd , EPOLL_CTL_MOD , sockfd , &ev);
+                
+                
 
 
 				// bzero(buf , MAX_LINE);
@@ -302,27 +413,37 @@ int main(int argc , char **argv)
 				// 	printf("clint[%d] send message: %s\n", i , buf);
 				
 				// 	/*设置用于注册写操作文件描述符和事件*/
-				// 	ev.data.fd = sockfd;
-				// 	ev.events = EPOLLOUT| EPOLLET;	
-				// 	epoll_ctl(epfd , EPOLL_CTL_MOD , sockfd , &ev);			
+                // ev.data.fd = sockfd;
+                // ev.events = EPOLLOUT| EPOLLET;	
+                // epoll_ctl(epfd , EPOLL_CTL_MOD , sockfd , &ev);			
 				// }//else											
 			}//else
 			else if(events[i].events & EPOLLOUT)
 			{
-
-                
-                
 				if((sockfd = events[i].data.fd) < 0)
 				    continue;
-                ret = En_queue(queue_write,sockfd);
+                data_t write_fd;
+                write_fd.fd = sockfd;
+                write_fd.fd_data = NULL;
+                
+                if(Inor_queue(queue_write,write_fd) != 0)
+                {
+                    SERVER_DEBUG("fd %d is already in queue_write\n",sockfd);
+                    continue;
+                }
+                ret = En_queue(queue_write,write_fd);
                 if(ret != 0)
                 {
                     printf("En_queue error!\n");
                     continue;
                 }
-                SERVER_DEBUG("%d is ready to write!\n",sockfd);
-                continue;
-
+                SERVER_DEBUG("%d is ready En_queue_Write\n",sockfd);
+                //continue;
+                /*设置用于读的文件描述符和事件*/
+				// ev.data.fd = sockfd;
+				// ev.events = EPOLLOUT | EPOLLET;
+				// /*修改*/
+				// epoll_ctl(epfd , EPOLL_CTL_DEL , sockfd , &ev);
 
 				// if((ret = write(sockfd , buf , n)) != n)	
 				// {
