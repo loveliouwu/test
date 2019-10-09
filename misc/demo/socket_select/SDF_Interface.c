@@ -8,7 +8,7 @@
 #include"socket_client.h"
 #include"sdf_common.h"
 
-//#define COMMON_DEBUG_LOG
+#define COMMON_DEBUG_LOG
 #ifdef COMMON_DEBUG_LOG
 #define COMMON_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
 #else 
@@ -362,7 +362,7 @@ int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,uns
         COMMON_ERROR("uiDataLength is 0!\n");
         return SDR_INARGERR;
     }
-    if(uiDataLength & SM4_KEY_LEN)
+    if(uiDataLength % SM4_KEY_LEN)
     {
         COMMON_ERROR("uiDataLength is not 16 multiple!\n");
         return SDR_INARGERR;
@@ -381,7 +381,7 @@ int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,uns
     packet = (packet_head*)psession_handle->sess.send_buff;
     packet->device_guid = psession_handle->sess.Dev_GUID;
     packet->major_cmd = server_cmd;
-    packet->minor_cmd = SYM_ENCRYPT;
+    packet->minor_cmd = 4;//SYM_ENCRYPT;
     packet->status = SDR_OK;
     packet->server_session_handle = psession_handle->sess.session_handle;
     memcpy(IV,pucIV,IV_LENGHT);
@@ -397,7 +397,7 @@ int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,uns
         {
             data_len = MAX_SEND_BUFF_LEN - sizeof(packet_head) - sizeof(symalg_cipher);         
         }
-        packet->len = data_len + sizeof(symalg_cipher);
+        packet->len = data_len + sizeof(symalg_cipher) + sizeof(packet_head);
         memcpy(enc_data.key_handle,Key,16);
         //enc_data.key_handle = *(unsigned int *)phKeyHandle;
         enc_data.data_len = data_len;
@@ -406,7 +406,7 @@ int SDF_Encrypt(void *hSessionHanlde,unsigned char *Key,unsigned int uiAlgID,uns
         memcpy(enc_data.IV,IV,IV_LENGHT);
         memcpy((char *)packet + sizeof(packet_head),&enc_data,sizeof(enc_data));
         memcpy((char *)packet + sizeof(packet_head) + sizeof(symalg_cipher),pucData + current_offset,data_len);
-        ret = socket_send(psession_handle,packet->len + sizeof(packet_head));
+        ret = socket_send(psession_handle,packet->len);
         packet = (packet_head*)psession_handle->sess.recv_buff;
         if(ret <= 0)
         {

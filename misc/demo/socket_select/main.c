@@ -375,10 +375,10 @@ void *thread_test(void *psession_handle)
     int time = 2;
     while(time)
     {
-        sm3test(psession_handle);
-        sm4_test(psession_handle);
-        sign_verify_test(psession_handle);
-        generate_agreement_data_and_key_test(psession_handle);
+        //sm3test(psession_handle);
+         sm4_test(psession_handle);
+        // sign_verify_test(psession_handle);
+        // generate_agreement_data_and_key_test(psession_handle);
     }
     
 
@@ -404,23 +404,23 @@ void main()
     }
 
    
-    // for(i=1;i<SOCKET_NUM;i++)
-    // {
-    //     ret = SDF_OpenSession(pdev_handle,&psession_handle[i]);
+    for(i=1;i<SOCKET_NUM;i++)
+    {
+        ret = SDF_OpenSession(pdev_handle,&psession_handle[i]);
     
-    //     printf("ssid %d\n",i);
-    //     pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
-    // }
-    SDF_OpenSession(pdev_handle,&psession_handle[1]);
+        printf("ssid %d\n",i);
+        pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
+    }
+    //SDF_OpenSession(pdev_handle,&psession_handle[1]);
     //sm3test(psession_handle[1]);
-    sm4_test(psession_handle[1]);
+    //sm4_test(psession_handle[1]);
     //sign_verify_test(psession_handle[1]);
    // generate_agreement_data_and_key_test(psession_handle[1]);
     //(thread_id[1],NULL);
-    // for(i=1;i<SOCKET_NUM;i++)
-    // {
-    //     ret = SDF_CloseSession(psession_handle[i]);
-    // }
+    for(i=1;i<SOCKET_NUM;i++)
+    {
+        ret = SDF_CloseSession(psession_handle[i]);
+    }
 
     
  

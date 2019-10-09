@@ -160,3 +160,60 @@ aw(awatch) a
     如果只想打印当前函数的局部变量的值
     info locals
 ```
+
+- 查看变量的类型
+```
+(gdb) whatis he
+type = struct child
+
+查看详细的类型信息
+(gdb) ptype he
+type = struct child{
+	char name[10];
+	enum {boy,girl} gender;
+}
+```
+
+- 每行显示一个结构体变量
+```
+set print pretty on
+```
+
+- 指定程序输入输出设备
+```
+打开一个新终端输入
+$tty
+/dev/pts/2
+
+然后调试时指定输入输出设备
+$ gdb -tty /dev/pts/2 ./a.out
+(gdb) r
+
+或者在gdb中，使用命令进行设置
+(gdb) tty /dev/pts/2
+```
+
+- 调试已经运行的进程的两种方法，一种是gdb启动时，指定进程的ID
+` gdb program processID`或`gdb program -p 10210`
+
+- 命令行查看进程id
+```
+//查看当前运行的进程
+ps aux|grep a.out
+//查看当前运行的轻量级进程
+ps -aL|grep a.out
+//查看主线程和新线程的关系
+pstree -p 主线程id
+```
+
+- 查看线程信息
+```
+查看所有线程信息
+info threads
+切换调试的线程
+thread  2
+只运行当前线程
+set scheduler-locking on
+所有线程并发执行
+set scheduler-locking off
+```

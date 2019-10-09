@@ -4,7 +4,7 @@
 #include"SDF_Interface.h"
 
 
-#define SOCKET_NUM                  (10)
+#define SOCKET_NUM                  (3)
 #define MAX_SEND_BUFF_LEN           (8*1024)
 #define MAX_KEY_INDEX               (4)
 #define SM2_BITS                    (256)
