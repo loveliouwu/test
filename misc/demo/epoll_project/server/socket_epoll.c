@@ -35,7 +35,7 @@
 #define MAX_CLIENT_NUM			1024
 #define LISTEN_BACKLOG          2048
 #define MAX_EVENT_COUNT         100
-#define BUF_SIZE                1024*4
+#define BUF_SIZE                1024*8
 #define THREAD_NUMS				4
 
 static int socket_num = 0;
@@ -157,21 +157,13 @@ static  void *server_thread(void *index)
 			}
 			if(close_flag == 1)
         	{
-				close(read_fd);
-				struct epoll_event ev1;
-				ev1.data.fd = read_fd;
-				ev1.events = EPOLLIN| EPOLLET;	
-				epoll_ctl(epfd , EPOLL_CTL_DEL , read_fd , &ev1);	
+				close(read_fd);	
 				printf("close sockfd %d\n",read_fd);
 				continue;
         	}
         	else if(close_flag == 2)
         	{
-				close(read_fd);
-				struct epoll_event ev1;
-				ev1.data.fd = read_fd;
-				ev1.events = EPOLLIN| EPOLLET;	
-				epoll_ctl(epfd , EPOLL_CTL_DEL , read_fd , &ev1);	
+				close(read_fd);	
 				printf("close ****8sockfd %d\n",read_fd);
 				continue;
         	}	
@@ -312,9 +304,9 @@ int socket_epoll()
 				}
 				
 				
-                // main_times++;
-				// if(main_times%1000 == 0)
-                // 	printf("main_thread times == %d\n",main_times);										
+                main_times++;
+				if(main_times%1000 == 0)
+                	printf("main_thread times == %d\n",main_times);										
 			}//else
 		}
 	}

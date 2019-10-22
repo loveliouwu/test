@@ -53,16 +53,18 @@ int SDF_OpenDevice(void **phDeviceHandle)
         return SDR_OPENDEVICE;
     }
     memset(pdev_handle->control_recv_buff,0,MAX_SEND_BUFF_LEN);
-    ret = socket_init(pdev_handle);
-    if(ret != 0)
+    //ret = socket_init(pdev_handle);
+    ret = create_socket();
+    if(ret <= 0)
     {
         COMMON_ERROR("socket init error\n");
-        socket_exit(pdev_handle);
+        //socket_exit(pdev_handle);
         free(pdev_handle->control_send_buff);
         free(pdev_handle->control_recv_buff);
         free(pdev_handle);
         return SDR_OPENDEVICE;
     }
+    pdev_handle->socketfd[0] = ret;//用于命令的sockfd
     memset(pdev_handle->fd_flag,0,SOCKET_NUM);//初始化socket_fd是否使用的标记
     pdev_handle->session_list_head = NULL;//初始化会话链表的头和尾节点
     pdev_handle->session_list_end = NULL;
@@ -117,8 +119,8 @@ int SDF_CloseDevice(void *phDeviceHandle)
         free(pdev_handle);
         return SDR_UNKNOWERR;
     }
-    socket_exit(pdev_handle);//释放socket
-
+    //socket_exit(pdev_handle);//释放socket
+    close(pdev_handle->socketfd[0]);
     if(pdev_handle->session_list_head != NULL)//如果有未关闭的会话，释放会话资源
     {
         session_list *p_session_list = NULL; 
@@ -126,7 +128,7 @@ int SDF_CloseDevice(void *phDeviceHandle)
         p_session_list = pdev_handle->session_list_head;
         while(p_session_list != NULL)
         {
-            
+            close(pdev_handle->socketfd[p_session_list->sess.socket_fd]);//关闭连接
             p_session_list_next = p_session_list->next;
             free(p_session_list->sess.recv_buff);
             free(p_session_list->sess.send_buff);
@@ -212,6 +214,16 @@ int SDF_OpenSession(void *phDeviceHandle,void **phSessionHandle)
         if(pdev_handle->fd_flag[i] == 0)
         {
             pdev_handle->fd_flag[i] = 1;
+            ret = create_socket();
+            if(ret <= 0)
+            {
+                COMMON_ERROR("create socket error!\n");
+                free(psession_handle->sess.recv_buff);
+                free(psession_handle->sess.send_buff);
+                free(psession_handle);
+                return SDR_OPENSESSION;
+            }
+            pdev_handle->socketfd[i] = ret;
             psession_handle->sess.socket_fd = i;//保存索引
             break;
         }
@@ -270,6 +282,7 @@ int SDF_CloseSession(void *phSessionHandle)
     packet->status = 0;
     packet->len = sizeof(packet_head);
     packet->server_session_handle = psession_handle->sess.session_handle;
+    packet->device_guid = psession_handle->sess.Dev_GUID;
     ret = socket_send(psession_handle,packet->len);
     packet = (packet_head*)psession_handle->sess.recv_buff;
     if((packet->status != 0) || (ret < 0))
@@ -283,6 +296,7 @@ int SDF_CloseSession(void *phSessionHandle)
         // return ret;
     }
     pdev_handle = psession_handle->sess.pdev_handle;
+    close(pdev_handle->socketfd[psession_handle->sess.socket_fd]);//关闭sockfd
     pdev_handle->fd_flag[psession_handle->sess.socket_fd] = 0;//清除设备fd_flag使用标记
     
     //维护会话链表
@@ -760,6 +774,16 @@ int SDF_Hash_Copy(void *hSessionHandle,void **hSessionHandle_out)
         if(pdev_handle->fd_flag[i] == 0)
         {
             pdev_handle->fd_flag[i] = 1;
+            ret = create_socket();
+            if(ret <= 0)
+            {
+                COMMON_ERROR("create socket error!\n");
+                free(psession_handle->sess.recv_buff);
+                free(psession_handle->sess.send_buff);
+                free(psession_handle);
+                return SDR_OPENSESSION;
+            }
+            pdev_handle->socketfd[i] = ret;
             psession_handle->sess.socket_fd = i;//保存索引
             break;
         }
@@ -1416,7 +1440,7 @@ int SDF_ExtVerify_ECC(void *hSessionHandle,
     packet->device_guid = psession_handle->sess.Dev_GUID;
     packet->server_session_handle = psession_handle->sess.session_handle;
     packet->major_cmd = server_cmd;
-    packet->minor_cmd = ECC_VERIGY;
+    packet->minor_cmd = ECC_EX_VERIFY;
     
     psign_verify = (sdf_extern_ecc_verify *)((char *)packet + sizeof(packet_head));
     memcpy(psign_verify->in_pub_key,pucPublicKey->x,SM2_BYTES);

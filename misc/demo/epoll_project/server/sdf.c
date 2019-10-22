@@ -34,7 +34,7 @@ void SDF_OpenDevice(packet_head **p)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("open_device too many\n");
+		SER_DEBUG("open_device too many\n");
 		return;
 	}
 	device_open_info.dev[sdf_device_num].device_guid.index=sdf_device_num;
@@ -45,7 +45,7 @@ void SDF_OpenDevice(packet_head **p)
 		//此设备未创建socket
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("open_device no creat socket\n");
+		SER_DEBUG("open_device no creat socket\n");
 		return;
 	}
 	socket_new=malloc(sizeof(socket_info));
@@ -53,7 +53,7 @@ void SDF_OpenDevice(packet_head **p)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("malloc socket_new error\n");
+		SER_DEBUG("malloc socket_new error\n");
 		return;
 	}
 	socket_new->next=NULL;
@@ -75,7 +75,7 @@ void SDF_OpenDevice(packet_head **p)
 		{
 			(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 			(*p)->sdf_cmd_head.len=sizeof(xmit_protocol);
-			printfS("malloc socket_n error\n");
+			SER_DEBUG("malloc socket_n error\n");
 			return;
 		}
 		socket_p->next=(struct socket_info *)socket_new;
@@ -92,7 +92,7 @@ void SDF_OpenDevice(packet_head **p)
 	(*p)->sdf_device_info.device_guid=device_open_info.dev[sdf_device_num].device_guid;
 	if(sdf_device_num<DEVICE_NUM)
 		sdf_device_num++;
-	printfS("open device success\n");
+	SER_DEBUG("open device success\n");
 }
 /*****************************************************************************************************************
  * private F function: 关闭设备
@@ -107,21 +107,21 @@ void SDF_CloseDevice(packet_head **p)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("open_device too many\n");
+		SER_DEBUG("open_device too many\n");
 		return;
 	}
 	if((*p)->sdf_device_info.device_guid.index>=sdf_device_num)//链表为空链表
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid.index error\n");
+		SER_DEBUG("rev_device_info.device_guid.index error\n");
 		return;
 	}
 	if(strcmp((char *)&(*p)->sdf_device_info.device_guid,(char *)&device_open_info.dev[(*p)->sdf_device_info.device_guid.index].device_guid)!=0)//循环查找要删除的节点
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid error\n");
+		SER_DEBUG("rev_device_info.device_guid error\n");
 		return;
 	}
 
@@ -146,7 +146,7 @@ void SDF_CloseDevice(packet_head **p)
 	(*p)->sdf_cmd_head.status=SDR_OK;
 	(*p)->sdf_cmd_head.len=sizeof(packet_head);
 
-	printfS("close device success\n");
+	SER_DEBUG("close device success\n");
 }
 /*****************************************************************************************************************
  * private F function: 打开会话
@@ -158,27 +158,27 @@ void SDF_OpenSession(packet_head **p)
 	session_info *session_new,*session;
 	device rev_device_info;
 
-	printfS("SDF_OpenSession\n");
+	SER_DEBUG("SDF_OpenSession\n");
 	memcpy(&rev_device_info,&(*p)->sdf_device_info,sizeof(device));
 	if(rev_device_info.device_guid.index>=sdf_device_num)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid.index=%d error\n",rev_device_info.device_guid.index);
+		SER_DEBUG("rev_device_info.device_guid.index=%d error\n",rev_device_info.device_guid.index);
 		return;
 	}
 	if(sdf_session_num[rev_device_info.device_guid.index]>=SESSION_NUM)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("sdf_session_num[%d] error\n",rev_device_info.device_guid.index);
+		SER_DEBUG("sdf_session_num[%d] error\n",rev_device_info.device_guid.index);
 		return;
 	}
 	if(strcmp((char *)&rev_device_info.device_guid,(char *)&device_open_info.dev[rev_device_info.device_guid.index].device_guid)!=0)//循环查找要删除的节点
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid error\n");
+		SER_DEBUG("rev_device_info.device_guid error\n");
 		return;
 	}
 
@@ -187,7 +187,7 @@ void SDF_OpenSession(packet_head **p)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("malloc session_new error\n");
+		SER_DEBUG("malloc session_new error\n");
 		return;
 	}
 	session_new->next=NULL;
@@ -215,7 +215,7 @@ void SDF_OpenSession(packet_head **p)
 	(*p)->sdf_device_info.session_list_head=session_new;
 	if(sdf_session_num[rev_device_info.device_guid.index]<SESSION_NUM)
 		sdf_session_num[rev_device_info.device_guid.index]++;
-	printfS("open session success\n");
+	SER_DEBUG("open session success\n");
 }
 
 /*****************************************************************************************************************
@@ -227,26 +227,26 @@ void SDF_CloseSession(packet_head **p)
 {
 	session_info *delete_session_info;
 
-	printfS("SDF_CloseSession\n");
+	SER_DEBUG("SDF_CloseSession\n");
 	if((*p)->sdf_device_info.device_guid.index>=sdf_device_num)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid.index error\n");
+		SER_DEBUG("rev_device_info.device_guid.index error\n");
 		return;
 	}
 	if(sdf_session_num[(*p)->sdf_device_info.device_guid.index]>=SESSION_NUM)
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("sdf_session_num[%d] error\n",(*p)->sdf_device_info.device_guid.index);
+		SER_DEBUG("sdf_session_num[%d] error\n",(*p)->sdf_device_info.device_guid.index);
 		return;
 	}
 	if(strcmp((char *)&(*p)->sdf_device_info.device_guid,(char *)&device_open_info.dev[(*p)->sdf_device_info.device_guid.index].device_guid)!=0)//循环查找要删除的节点
 	{
 		(*p)->sdf_cmd_head.status=EXIT_FAILURE;
 		(*p)->sdf_cmd_head.len=sizeof(packet_head);
-		printfS("rev_device_info.device_guid error\n");
+		SER_DEBUG("rev_device_info.device_guid error\n");
 		return;
 	}
 	if((*p)->sdf_device_info.session_list_head==device_open_info.dev[(*p)->sdf_device_info.device_guid.index].session_list_head)//删除表头
@@ -283,7 +283,7 @@ void SDF_CloseSession(packet_head **p)
 		sdf_session_num[(*p)->sdf_device_info.device_guid.index]--;
 	(*p)->sdf_cmd_head.status=SDR_OK;
 	(*p)->sdf_cmd_head.len=sizeof(packet_head);
-	printfS("close session success\n");
+	SER_DEBUG("close session success\n");
 }
 
 /*****************************************************************************************************************
@@ -301,7 +301,7 @@ void SDF_Encrypt(packet_head **sdf_cmd_head,sdf_sym_server **p)
 	unsigned char *out_data = malloc(SDF_ALG_SERVER_MAX_PACKET);
 	int block_num =0;
 
-	printfS("\n SDF_Encrypt start \n");
+	SER_DEBUG("\n SDF_Encrypt start \n");
 	//需上层判断是不是一个分组的整数倍
 	block_num=(*p)->in_out_data_len/16;
 	if((*p)->in_alg_id==0x401)
@@ -318,7 +318,7 @@ void SDF_Encrypt(packet_head **sdf_cmd_head,sdf_sym_server **p)
 	memcpy((*p)->in_out_data,out_data,(*p)->in_out_data_len);
 	free(out_data);
 	out_data=NULL;
-	printfS("\n SDF_Encrypt end \n");
+	SER_DEBUG("\n SDF_Encrypt end \n");
 }
 /*****************************************************************************************************************
  * private F function: SDF_Decrypt
@@ -335,7 +335,7 @@ void SDF_Decrypt(packet_head **sdf_cmd_head,sdf_sym_server **p)
 	unsigned char *out_data = malloc(SDF_ALG_SERVER_MAX_PACKET);
 	int block_num =0;
 
-	printfS("\n SDF_Decrypt start \n");
+	SER_DEBUG("\n SDF_Decrypt start \n");
 	//需上层判断是不是一个分组的整数倍
 	block_num=(*p)->in_out_data_len/16;
 	if((*p)->in_alg_id==0x401)
@@ -352,7 +352,7 @@ void SDF_Decrypt(packet_head **sdf_cmd_head,sdf_sym_server **p)
 	memcpy((*p)->in_out_data,out_data,(*p)->in_out_data_len);
 	free(out_data);
 	out_data=NULL;
-	printfS("\n SDF_Decrypt end \n");
+	SER_DEBUG("\n SDF_Decrypt end \n");
 }
 
 /*****************************************************************************************************************
@@ -364,10 +364,10 @@ void SDF_HashInit(packet_head **sdf_cmd_head)
 {
 	SM3_CTX *p=(SM3_CTX *)(*sdf_cmd_head)->sdf_device_info.session_list_head->sm3_par_p;
 
-	printfS("\n SDF_HashInit start \n");
+	SER_DEBUG("\n SDF_HashInit start \n");
 	SM3_Init((SM3_CTX **)&p);
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_HashInit end \n");
+	SER_DEBUG("\n SDF_HashInit end \n");
 }
 
 /*****************************************************************************************************************
@@ -381,10 +381,10 @@ void SDF_HashUpdate(packet_head **sdf_cmd_head,sdf_sm3_server **p)
 {
 	SM3_CTX *sm3_p=(SM3_CTX *)(*sdf_cmd_head)->sdf_device_info.session_list_head->sm3_par_p;
 
-	printfS("\n SDF_HashUpdate start \n");
+	SER_DEBUG("\n SDF_HashUpdate start \n");
 	SM3_Update((SM3_CTX **)&sm3_p, (*p)->in_out_data, (*p)->in_out_data_len);
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_HashUpdate end \n");
+	SER_DEBUG("\n SDF_HashUpdate end \n");
 }
 
 /*****************************************************************************************************************
@@ -398,12 +398,12 @@ void SDF_HashUpFinal(packet_head **sdf_cmd_head,sdf_sm3_server **p)
 {
 	SM3_CTX *sm3_p=(SM3_CTX *)(*sdf_cmd_head)->sdf_device_info.session_list_head->sm3_par_p;
 
-	printfS("\n SDF_HashUpFinal start \n");
+	SER_DEBUG("\n SDF_HashUpFinal start \n");
 	SM3_Final((SM3_CTX **)&sm3_p, (*p)->in_out_data);
 	(*p)->in_out_data_len=32;
 	(*sdf_cmd_head)->sdf_cmd_head.len=sizeof(packet_head)+sizeof(sdf_sm3_server)+(*p)->in_out_data_len;
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_HashUpFinal end \n");
+	SER_DEBUG("\n SDF_HashUpFinal end \n");
 }
 /*****************************************************************************************************************
  * private F function: sdf_cmd_head
@@ -414,11 +414,11 @@ void SDF_HashUpFinal(packet_head **sdf_cmd_head,sdf_sm3_server **p)
  ******************************************************************************************************************/
 void SDF_GenerateRandom(packet_head **sdf_cmd_head,sdf_get_rng **p)
 {
-	printfS("\n SDF_GenerateRandom start \n");
+	SER_DEBUG("\n SDF_GenerateRandom start \n");
 	get_random((*p)->out_data,(*p)->in_data_len);
 	(*sdf_cmd_head)->sdf_cmd_head.len=sizeof(packet_head)+sizeof(sdf_get_rng)+(*p)->in_data_len;
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_GenerateRandom end \n");
+	SER_DEBUG("\n SDF_GenerateRandom end \n");
 }
 /*****************************************************************************************************************
  * private F function: 产生ECC密钥对并输出
@@ -432,17 +432,17 @@ void SDF_GenerateKeyPair_ECC(packet_head **sdf_cmd_head,sdf_gen_asym_key **p)
 {
 	unsigned int i=0,asym_num=0;
 
-	printfS("\n SDF_GenerateKeyPair_ECC start \n");
+	SER_DEBUG("\n SDF_GenerateKeyPair_ECC start \n");
 
 	if(((*p)->in_password_len==0)||((*p)->in_password_len>16))
 	{
-		printfS("password_len=%d error\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d error\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if((*p)->in_password==NULL)
 	{
-		printfS("password error\n");
+		SER_DEBUG("password error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
@@ -452,10 +452,10 @@ void SDF_GenerateKeyPair_ECC(packet_head **sdf_cmd_head,sdf_gen_asym_key **p)
 		{
 			if(0==sdf_generate_key(i,1,(*p)->in_password_len,(*p)->in_password))
 			{
-				printfS("gen asym key index=%d success\n",i);
+				SER_DEBUG("gen asym key index=%d success\n",i);
 				if(0!=sdf_key_init())
 				{
-					printfS("sdf key init error\n");
+					SER_DEBUG("sdf key init error\n");
 					(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 					return;
 				}
@@ -468,11 +468,11 @@ void SDF_GenerateKeyPair_ECC(packet_head **sdf_cmd_head,sdf_gen_asym_key **p)
 	}
 	if(asym_num>=ASYM_KEY_NUM)
 	{
-		printfS("aysm key is full\n");
+		SER_DEBUG("aysm key is full\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_NOBUFFER;
 		return;
 	}
-	printfS("\n SDF_GenerateKeyPair_ECC end \n");
+	SER_DEBUG("\n SDF_GenerateKeyPair_ECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 删除非对称密钥
@@ -484,47 +484,47 @@ void SDF_GenerateKeyPair_ECC(packet_head **sdf_cmd_head,sdf_gen_asym_key **p)
  ******************************************************************************************************************/
 void SDF_DeleteKeyPair_ECC(packet_head **sdf_cmd_head,sdf_gen_asym_key **p)
 {
-	printfS("\n SDF_DeleteKeyPair_ECC start \n");
+	SER_DEBUG("\n SDF_DeleteKeyPair_ECC start \n");
 
 	if(((*p)->in_password_len==0)||((*p)->in_password_len>16))
 	{
-		printfS("password_len=%d error\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d error\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if((*p)->in_password==NULL)
 	{
-		printfS("password error\n");
+		SER_DEBUG("password error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_out_key_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_out_key_index].key_status);
+		SER_DEBUG("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_out_key_index].key_status);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
 		return;
 	}
 	if((*p)->in_password_len!=sdf_asym_key_pool[(*p)->in_out_key_index].key_password_len)
 	{
-		printfS("password_len=%d not same\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d not same\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(memcmp(sdf_asym_key_pool[(*p)->in_out_key_index].key_password, (*p)->in_password, (*p)->in_password_len) != 0)
 	{
-		printfS("password not same\n");
+		SER_DEBUG("password not same\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(0!=sdf_delete_key((*p)->in_out_key_index,1,(*p)->in_password_len,(*p)->in_password))
 	{
-		printfS("sdf_delete_key error\n");
+		SER_DEBUG("sdf_delete_key error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 		return;
 	}
 	sdf_asym_key_pool[(*p)->in_out_key_index].key_status=SDF_KEY_BLANK;
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_DeleteKeyPair_ECC end \n");
+	SER_DEBUG("\n SDF_DeleteKeyPair_ECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 使用内部ECC私钥对数据进行签名运算
@@ -541,52 +541,52 @@ void SDF_InternalSign_ECC(packet_head **sdf_cmd_head,sdf_sm2_server **p)
 {
 	int r_len,s_len;
 
-	printfS("\n SDF_InternalSign_ECC start \n");
+	SER_DEBUG("\n SDF_InternalSign_ECC start \n");
 	if(((*p)->in_password_len==0)||((*p)->in_password_len>16))
 	{
-		printfS("password_len=%d error\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d error\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if((*p)->in_password==NULL)
 	{
-		printfS("password error\n");
+		SER_DEBUG("password error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if((*p)->in_key_index>SYM_KEY_NUM)
 	{
-		printfS("key_index=%d error\n",(*p)->in_key_index);
+		SER_DEBUG("key_index=%d error\n",(*p)->in_key_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_key_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
+		SER_DEBUG("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	if((*p)->in_password_len!=sdf_asym_key_pool[(*p)->in_key_index].key_password_len)
 	{
-		printfS("password_len=%d not same\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d not same\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(memcmp(sdf_asym_key_pool[(*p)->in_key_index].key_password, (*p)->in_password, (*p)->in_password_len) != 0)
 	{
-		printfS("password not same\n");
+		SER_DEBUG("password not same\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	sm2_sign((*p)->in_hash_data,32,sdf_asym_key_pool[(*p)->in_key_index].sig_pri_key,32,(*p)->in_out_r_s_value,&r_len,(*p)->in_out_r_s_value+32,&s_len);
 	if((s_len!=32)||(r_len!=32))
 	{
-		printfS("sm2 sign error\n");
+		SER_DEBUG("sm2 sign error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_SIGNERR;
 		return;
 	}
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_InternalSign_ECC end \n");
+	SER_DEBUG("\n SDF_InternalSign_ECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 使用内部ECC公钥对数据进行验证运算
@@ -599,27 +599,27 @@ void SDF_InternalSign_ECC(packet_head **sdf_cmd_head,sdf_sm2_server **p)
  ******************************************************************************************************************/
 void SDF_InternalVerify_ECC(packet_head **sdf_cmd_head,sdf_sm2_server **p)
 {
-	printfS("\n SDF_InternalVerify_ECC start \n");
+	SER_DEBUG("\n SDF_InternalVerify_ECC start \n");
 	if((*p)->in_key_index>SYM_KEY_NUM)
 	{
-		printfS("key_index=%d error\n",(*p)->in_key_index);
+		SER_DEBUG("key_index=%d error\n",(*p)->in_key_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_key_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
+		SER_DEBUG("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	if(0!=sm2_verify((*p)->in_hash_data,(*p)->in_hash_data_len,(*p)->in_out_r_s_value,32,(*p)->in_out_r_s_value+32,32,sdf_asym_key_pool[(*p)->in_key_index].sig_pub_key,32, sdf_asym_key_pool[(*p)->in_key_index].sig_pub_key+32,32))
 	{
-		printfS("sm2 verify error\n");
+		SER_DEBUG("sm2 verify error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_VERIFYERR;
 		return;
 	}
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_InternalVerify_ECC end \n");
+	SER_DEBUG("\n SDF_InternalVerify_ECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 使用外部ECC公钥对数据进行验证运算
@@ -629,17 +629,20 @@ void SDF_InternalVerify_ECC(packet_head **sdf_cmd_head,sdf_sm2_server **p)
  * args:    [in] r_s_value:签名数据
  * return: none
  ******************************************************************************************************************/
+int count =0;
 void SDF_ExternalVerify_ECC(packet_head **sdf_cmd_head,sdf_extern_ecc_verify **p)
 {
-	printfS("\n SDF_ExternalVerify_ECC start \n");
+	SER_DEBUG("\n SDF_ExternalVerify_ECC start \n");
 	if(0!=sm2_verify((*p)->in_hash_data,32,(*p)->in_out_r_s_value,32,(*p)->in_out_r_s_value+32,32,(*p)->in_pub_key,32, (*p)->in_pub_key+32,32))
 	{
-		printfS("sm2 verify error\n");
+		SER_DEBUG("sm2 verify error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_VERIFYERR;
 		return;
 	}
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_ExternalVerify_ECC end \n");
+	count++;
+	printf("count %d\n",count);
+	SER_DEBUG("\n SDF_ExternalVerify_ECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 生成密钥协商参数并输出
@@ -659,41 +662,41 @@ void SDF_GenerateAgreementDataWithECC(packet_head **sdf_cmd_head,sdf_gen_agreeme
 {
 	int pub_x_len,pub_y_len,rng_len;
 
-	printfS("\n SDF_GenerateAgreementDataWithECC start \n");
+	SER_DEBUG("\n SDF_GenerateAgreementDataWithECC start \n");
 	if((*p)->in_key_index>SYM_KEY_NUM)
 	{
-		printfS("key_index=%d error\n",(*p)->in_key_index);
+		SER_DEBUG("key_index=%d error\n",(*p)->in_key_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_key_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
+		SER_DEBUG("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	if((*p)->in_password_len!=sdf_asym_key_pool[(*p)->in_key_index].key_password_len)
 	{
-		printfS("password_len=%d not same\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d not same\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(memcmp(sdf_asym_key_pool[(*p)->in_key_index].key_password, (*p)->in_password, (*p)->in_password_len) != 0)
 	{
-		printfS("password not same\n");
+		SER_DEBUG("password not same\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	sm2_keyagreement_a1_3((*p)->out_A_mp_pubkey, &pub_x_len, (*p)->out_A_mp_pubkey+32,&pub_y_len, (*p)->out_handle.rng, &rng_len);
 	if((pub_x_len!=32)||(pub_y_len!=32)||(rng_len!=32))
 	{
-		printfS("pub_x_len=%d,pub_y_len=%d,rng_len=%d  error\n",pub_x_len,pub_y_len,rng_len);
+		SER_DEBUG("pub_x_len=%d,pub_y_len=%d,rng_len=%d  error\n",pub_x_len,pub_y_len,rng_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 		return;
 	}
-	printfS("out_A_mp_pubkey\n");
+	SER_DEBUG("out_A_mp_pubkey\n");
 	PrintBuf((*p)->out_A_mp_pubkey,64);
-	printfS("rng\n");
+	SER_DEBUG("rng\n");
 	PrintBuf((*p)->out_handle.rng,32);
 	memcpy((*p)->out_A_pubkey,sdf_asym_key_pool[(*p)->in_key_index].enc_pub_key,64);
 
@@ -704,7 +707,7 @@ void SDF_GenerateAgreementDataWithECC(packet_head **sdf_cmd_head,sdf_gen_agreeme
 	memcpy((*p)->out_handle.A_pubkey,(*p)->out_A_pubkey,64);
 	(*p)->out_handle.session_key_len=(*p)->in_key_bits/8;
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_GenerateAgreementDataWithECC end \n");
+	SER_DEBUG("\n SDF_GenerateAgreementDataWithECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 产生协商数据并计算会话密钥
@@ -729,38 +732,38 @@ void SDF_GenerateAgreementDataAndKeyWithECC( packet_head **sdf_cmd_head,sdf_gen_
 {
 	int m_pub_key_x_len,m_pub_key_y_len;
 
-	printfS("\n SDF_GenerateAgreementDataAndKeyWithECC start \n");
+	SER_DEBUG("\n SDF_GenerateAgreementDataAndKeyWithECC start \n");
 	if((*p)->in_key_index>SYM_KEY_NUM)
 	{
-		printfS("key_index=%d error\n",(*p)->in_key_index);
+		SER_DEBUG("key_index=%d error\n",(*p)->in_key_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_key_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
+		SER_DEBUG("key_index=%d status error\n",sdf_asym_key_pool[(*p)->in_key_index].key_status);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	if((*p)->in_password_len!=sdf_asym_key_pool[(*p)->in_key_index].key_password_len)
 	{
-		printfS("password_len=%d not same\n",(*p)->in_password_len);
+		SER_DEBUG("password_len=%d not same\n",(*p)->in_password_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(memcmp(sdf_asym_key_pool[(*p)->in_key_index].key_password, (*p)->in_password, (*p)->in_password_len) != 0)
 	{
-		printfS("password not same\n");
+		SER_DEBUG("password not same\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
-	printfS("in_A_mp_pubkey\n");
+	SER_DEBUG("in_A_mp_pubkey\n");
 	PrintBuf((*p)->in_A_mp_pubkey,64);
-	printfS("in_A_pubkey\n");
+	SER_DEBUG("in_A_pubkey\n");
 	PrintBuf((*p)->in_A_pubkey,64);
-	printfS("in_B_prikey\n");
+	SER_DEBUG("in_B_prikey\n");
 	PrintBuf(sdf_asym_key_pool[(*p)->in_key_index].enc_pri_key,32);
-	printfS("in_B_pubkey\n");
+	SER_DEBUG("in_B_pubkey\n");
 	PrintBuf(sdf_asym_key_pool[(*p)->in_key_index].enc_pub_key,64);
 
 	if(1!=sm2_keyagreement_b1_9(
@@ -781,15 +784,15 @@ void SDF_GenerateAgreementDataAndKeyWithECC( packet_head **sdf_cmd_head,sdf_gen_
 													  NULL,NULL,
 	                                                  NULL))
 	{
-		printfS("sm2 error\n");
+		SER_DEBUG("sm2 error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 		return;
 	}
-	printfS("out_B_mp_pubkey\n");
+	SER_DEBUG("out_B_mp_pubkey\n");
 	PrintBuf((*p)->out_B_mp_pubkey,64);
 	if((m_pub_key_x_len!=32)||(m_pub_key_y_len!=32))
 	{
-		printfS("m_pub_key_x_len=%d,m_pub_key_y_len=%d  error\n",m_pub_key_x_len,m_pub_key_y_len);
+		SER_DEBUG("m_pub_key_x_len=%d,m_pub_key_y_len=%d  error\n",m_pub_key_x_len,m_pub_key_y_len);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 		return;
 	}
@@ -798,7 +801,7 @@ void SDF_GenerateAgreementDataAndKeyWithECC( packet_head **sdf_cmd_head,sdf_gen_
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
 	(*sdf_cmd_head)->sdf_cmd_head.len=sizeof(packet_head)+sizeof(sdf_gen_agreement_par_and_key)+(*p)->out_session_key_len;
 	PrintBuf((*p)->out_session_key,(*p)->in_key_bits/8);
-	printfS("\n SDF_GenerateAgreementDataAndKeyWithECC end \n");
+	SER_DEBUG("\n SDF_GenerateAgreementDataAndKeyWithECC end \n");
 }
 /*****************************************************************************************************************
  * private F function: 计算会话密钥
@@ -816,22 +819,22 @@ void SDF_GenerateKeyWithECC(packet_head **sdf_cmd_head,sdf_count_session_key **p
 {
 	unsigned char s1[32],sa[32];
 
-	printfS("\n SDF_GenerateKeyWithECC start \n");
-	printfS("A_mp_pubkey\n");
+	SER_DEBUG("\n SDF_GenerateKeyWithECC start \n");
+	SER_DEBUG("A_mp_pubkey\n");
 	PrintBuf((*p)->in_handle.A_mp_pubkey,64);
-	printfS("A_pubkey\n");
+	SER_DEBUG("A_pubkey\n");
 	PrintBuf((*p)->in_handle.A_pubkey,64);
-	printfS("A_prikey\n");
+	SER_DEBUG("A_prikey\n");
 	PrintBuf(sdf_asym_key_pool[(*p)->in_handle.A_prikey_index].enc_pri_key,32);
-	printfS("in_B_pubkey\n");
+	SER_DEBUG("in_B_pubkey\n");
 	PrintBuf((*p)->in_B_pubkey,64);
-	printfS("A_id\n");
+	SER_DEBUG("A_id\n");
 	PrintBuf((*p)->in_handle.A_id,(*p)->in_handle.A_id_len);
-	printfS("in_B_ID\n");
+	SER_DEBUG("in_B_ID\n");
 	PrintBuf((*p)->in_B_ID,(*p)->in_B_id_length);
-	printfS("in_B_mp_pubkey\n");
+	SER_DEBUG("in_B_mp_pubkey\n");
 	PrintBuf((*p)->in_B_mp_pubkey,64);
-	printfS("rng\n");
+	SER_DEBUG("rng\n");
 	PrintBuf((*p)->in_handle.rng,32);
 	if(0==sm2_keyagreement_a4_10(
 	                                                  (*p)->in_handle.A_mp_pubkey, 32,
@@ -852,7 +855,7 @@ void SDF_GenerateKeyWithECC(packet_head **sdf_cmd_head,sdf_count_session_key **p
 	                                                  sa
 	                                                  ))
 	{
-		printfS("sm2  error\n");
+		SER_DEBUG("sm2  error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_UNKNOWERR;
 		return;
 	}
@@ -860,7 +863,7 @@ void SDF_GenerateKeyWithECC(packet_head **sdf_cmd_head,sdf_count_session_key **p
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
 	(*sdf_cmd_head)->sdf_cmd_head.len=sizeof(packet_head)+sizeof(sdf_count_session_key)+(*p)->out_session_key_len;
 	PrintBuf( (*p)->out_session_key,(*p)->out_session_key_len);
-	printfS("\n SDF_GenerateAgreementDataAndKeyWithECC end \n");
+	SER_DEBUG("\n SDF_GenerateAgreementDataAndKeyWithECC end \n");
 }
 
 /*****************************************************************************************************************
@@ -872,22 +875,22 @@ void SDF_GenerateKeyWithECC(packet_head **sdf_cmd_head,sdf_count_session_key **p
  ******************************************************************************************************************/
 void SDF_ExportEncPublicKey_ECC(packet_head **sdf_cmd_head,sdf_export_ecc_pub_key **p)
 {
-	printfS("\n SDF_ExportEncPublicKey_ECc start \n");
+	SER_DEBUG("\n SDF_ExportEncPublicKey_ECc start \n");
 	if((*p)->in_index>=ASYM_KEY_NUM)
 	{
-		printfS("asym key in_index=%d error\n",(*p)->in_index);
+		SER_DEBUG("asym key in_index=%d error\n",(*p)->in_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("asym key key_status error\n");
+		SER_DEBUG("asym key key_status error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	memcpy((*p)->out_pub_key,sdf_asym_key_pool[(*p)->in_index].enc_pub_key,64);
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_ExportEncPublicKey_ECc end \n");
+	SER_DEBUG("\n SDF_ExportEncPublicKey_ECc end \n");
 }
 
 /*****************************************************************************************************************
@@ -899,22 +902,22 @@ void SDF_ExportEncPublicKey_ECC(packet_head **sdf_cmd_head,sdf_export_ecc_pub_ke
  ******************************************************************************************************************/
 void SDF_ExportSignPublicKey_ECC(packet_head **sdf_cmd_head,sdf_export_ecc_pub_key **p)
 {
-	printfS("\n SDF_ExportSignPublicKey_ECC start \n");
+	SER_DEBUG("\n SDF_ExportSignPublicKey_ECC start \n");
 	if((*p)->in_index>=ASYM_KEY_NUM)
 	{
-		printfS("asym key in_index=%d error\n",(*p)->in_index);
+		SER_DEBUG("asym key in_index=%d error\n",(*p)->in_index);
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_INARGERR;
 		return;
 	}
 	if(sdf_asym_key_pool[(*p)->in_index].key_status!=SDF_KEY_ACTIVE)
 	{
-		printfS("asym key key_status error\n");
+		SER_DEBUG("asym key key_status error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=SDR_KEYNOTEXIST;
 		return;
 	}
 	memcpy((*p)->out_pub_key,sdf_asym_key_pool[(*p)->in_index].sig_pub_key,64);
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_ExportSignPublicKey_ECC end \n");
+	SER_DEBUG("\n SDF_ExportSignPublicKey_ECC end \n");
 }
 
 
@@ -927,18 +930,17 @@ void SDF_ExportSignPublicKey_ECC(packet_head **sdf_cmd_head,sdf_export_ecc_pub_k
 void SDF_Hash_Copy(packet_head **sdf_cmd_head,packet_head *sdf_out_data)
 {
 	packet_head *p=sdf_out_data;
-
-	printfS("\n SDF_Hash_Copy start \n");
+	SER_DEBUG("\n SDF_Hash_Copy start \n");
 	memcpy(p,*sdf_cmd_head,sizeof(packet_head));
 	SDF_OpenSession((packet_head **)&p);
 	if(p->sdf_cmd_head.status!=SDR_OK)
 	{
-		printfS("SDF_OpenSession error\n");
+		SER_DEBUG("SDF_OpenSession error\n");
 		(*sdf_cmd_head)->sdf_cmd_head.status=p->sdf_cmd_head.status;
 		return;
 	}
 	memcpy(p->sdf_device_info.session_list_head->sm3_par_p,(*sdf_cmd_head)->sdf_device_info.session_list_head->sm3_par_p,sizeof(SM3_CTX));
 	(*sdf_cmd_head)->sdf_cmd_head.len=2*sizeof(packet_head);
 	(*sdf_cmd_head)->sdf_cmd_head.status=SDR_OK;
-	printfS("\n SDF_Hash_Copy end \n");
+	SER_DEBUG("\n SDF_Hash_Copy end \n");
 }

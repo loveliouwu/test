@@ -47,7 +47,7 @@ int create_socket()
     addr_info.ai_socktype   = SOCK_STREAM;
 
     //
-    res = getaddrinfo("192.168.1.73","8087",&addr_info,&paddr_info);
+    res = getaddrinfo("192.168.1.26","8087",&addr_info,&paddr_info);
     if (res == -1) {
         COMMON_ERROR("error : cannot get socket address!\n");
         return -1;

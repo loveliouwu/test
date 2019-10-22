@@ -216,53 +216,67 @@ void sm4_test()
 }
 void sm3_test()
 {
-	unsigned char input[2*1024],output[32];
+	unsigned char input[2*1024],output[4096];
 	unsigned int i=0;
 
-	for(i=0;i<3;i++)
-	{
-		input[i]=i+0x61;
-		printfS("%02x", input[i]);
-	}
-	printfS("\n");
-	SM3(input,3,output);
-	for(i=0;i<32;i++)
-	{
-		printfS("%02x", output[i]);
-	}
-	printfS("\n");
+	// for(i=0;i<3;i++)
+	// {
+	// 	input[i]=i+0x61;
+	// 	printfS("%02x", input[i]);
+	// }
+	// printfS("\n");
+	// SM3(input,3,output);
+	// for(i=0;i<32;i++)
+	// {
+	// 	printfS("%02x", output[i]);
+	// }
+	// printfS("\n");
 
 
 	int loop_times=100000;
 	clock_t start,end;
 	double speed;
 
-	start=clock();
-	for(i=0;i<loop_times;i++)
-	{
-		SM3(input,2048,output);
-	}
-	end=clock();
-	printfS("sm3 start:%lf\n", (double)start);
-	printfS("sm3 end:%lf\n", (double)end);
-	speed = (double)(end-start)/CLOCKS_PER_SEC;
-	printfS("sm3 time:%lfs\n", (double)speed);
-	printfS("sm3 speed:%lfMbps\n", (double)loop_times*2*8/speed/1024);
+	// start=clock();
+	// for(i=0;i<loop_times;i++)
+	// {
+	// 	SM3(input,2048,output);
+	// }
+	// end=clock();
+	// printfS("sm3 start:%lf\n", (double)start);
+	// printfS("sm3 end:%lf\n", (double)end);
+	// speed = (double)(end-start)/CLOCKS_PER_SEC;
+	// printfS("sm3 time:%lfs\n", (double)speed);
+	// printfS("sm3 speed:%lfMbps\n", (double)loop_times*2*8/speed/1024);
 
 	memset(output,0,32);
 	SM3_CTX *p=(SM3_CTX *)malloc(sizeof(SM3_CTX));
-	SM3_CTX *q=(SM3_CTX *)malloc(sizeof(SM3_CTX));
-	SM3_Init((SM3_CTX **)&p);
-	memcpy(q,p,sizeof(SM3_CTX));
-	SM3_Update((SM3_CTX **)&p, input,3);
-	SM3_Final((SM3_CTX **)&p, output);
-	PrintBuf(output,32);
+	start=clock();
+	for(i=0;i<loop_times;i++)
+	{
+		SM3_Init((SM3_CTX **)&p);
+		//memcpy(q,p,sizeof(SM3_CTX));
+		SM3_Update((SM3_CTX **)&p, input,2048);
+		SM3_Final((SM3_CTX **)&p, output);
+	}
+	end=clock();
+	printf("sm3 start:%lf\n", (double)start);
+	printf("sm3 end:%lf\n", (double)end);
+	speed = (double)(end-start)/CLOCKS_PER_SEC;
+	printf("sm3 time:%lfs\n", (double)speed);
+	printf("sm3 speed:%lfMbps\n", (double)loop_times*2*8/speed/1024);
+	//SM3_CTX *q=(SM3_CTX *)malloc(sizeof(SM3_CTX));
+	// SM3_Init((SM3_CTX **)&p);
+	// memcpy(q,p,sizeof(SM3_CTX));
+	// SM3_Update((SM3_CTX **)&p, input,2048);
+	// SM3_Final((SM3_CTX **)&p, output);
+	//PrintBuf(output,32);
 	free(p);
-	memset(output,0,32);
-	SM3_Update((SM3_CTX **)&q, input,3);
-	SM3_Final((SM3_CTX **)&q, output);
-	PrintBuf(output,32);
-	free(q);
+	// memset(output,0,32);
+	// SM3_Update((SM3_CTX **)&q, input,2048);
+	// SM3_Final((SM3_CTX **)&q, output);
+	// PrintBuf(output,32);
+	// free(q);
 }
 void sm2_sign_verify_test()
 {
@@ -485,16 +499,16 @@ void sm2_enc_dec_test()
 void sm2_test()
 {
 
-	printfS("\n******sm2_get_keypair_test****\n");
+	printf("\n******sm2_get_keypair_test****\n");
 	sm2_get_keypair_test();
 
-	printfS("\n******sm2_sign_verify_test****\n");
+	printf("\n******sm2_sign_verify_test****\n");
 	sm2_sign_verify_test();
 
-	printfS("\n******sm2_enc_dec_test****\n");
+	printf("\n******sm2_enc_dec_test****\n");
 	sm2_enc_dec_test();
 
-	printfS("\n******change key****\n");
+	printf("\n******change key****\n");
 	sm2_change_key_test();
 }
 

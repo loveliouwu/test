@@ -11,7 +11,7 @@
 
 
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define printfS printf
 #else

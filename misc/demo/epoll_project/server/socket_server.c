@@ -13,13 +13,17 @@
 #include <errno.h>
 #include <string.h>
 #include "../include/common.h"
-#include<inttypes.h>
+#include <inttypes.h>
 #include "../include/sdf.h"
 #include "../alg/alg_test.h"
 #include "../include/sdf_manage.h"
 
 #include <time.h>
 #include <sys/time.h>
+#include "../alg/sm4.h"
+
+
+
 
 void sdf_key_test()
 {
@@ -28,43 +32,43 @@ void sdf_key_test()
 
 	if(-1==sdf_key_init())
 	{
-		printfS("init error\n");
+		SER_DEBUG("init error\n");
 		while(1);
 	}
 	for(i=0;i<4;i++)
 	{
 		if(-1==sdf_generate_key(i,0,0,NULL))
 		{
-			printfS("sdf_generate_key sym index=%d error\n",i);
+			SER_DEBUG("sdf_generate_key sym index=%d error\n",i);
 			while(1);
 		}
 		if(-1==sdf_generate_key(i,1,3,passward))
 		{
-			printfS("sdf_generate_key asym index=%d error\n",i);
+			SER_DEBUG("sdf_generate_key asym index=%d error\n",i);
 			while(1);
 		}
 	}
 	if(-1==sdf_key_init())
 	{
-		printfS("init error\n");
+		SER_DEBUG("init error\n");
 		while(1);
 	}
 	for(i=0;i<SYM_KEY_NUM;i++)
 	{
 		if(-1==sdf_delete_key(i,0,0,NULL))
 		{
-			printfS("sdf_delete_key sym index=%d error\n",i);
+			SER_DEBUG("sdf_delete_key sym index=%d error\n",i);
 			while(1);
 		}
 		if(-1==sdf_delete_key(i,1,3,passward))
 		{
-			printfS("sdf_delete_key asym index=%d error\n",i);
+			SER_DEBUG("sdf_delete_key asym index=%d error\n",i);
 			while(1);
 		}
 	}
 	if(-1==sdf_key_init())
 	{
-		printfS("init error\n");
+		SER_DEBUG("init error\n");
 		while(1);
 	}
 }
@@ -73,7 +77,7 @@ void test_init()
 	sdf_asym_key_pool=(sdf_pool_asym_key*)malloc(ASYM_KEY_NUM*sizeof(sdf_pool_asym_key));
 	if(-1==sdf_key_init())
 	{
-		printfS("sdf_key_init error\n");
+		SER_DEBUG("sdf_key_init error\n");
 		while(1);
 	}
 	else
@@ -107,7 +111,7 @@ void change_key_test()
 	sdf_cmd_head1->in_password_len=3;
 	memcpy(sdf_cmd_head1->in_password,ida,sdf_cmd_head1->in_password_len);
 	SDF_GenerateAgreementDataAndKeyWithECC(&p,&sdf_cmd_head1);
-	printfS("sdf_cmd_head1 session key index=%d\n",sdf_cmd_head1->out_session_key_len);
+	SER_DEBUG("sdf_cmd_head1 session key index=%d\n",sdf_cmd_head1->out_session_key_len);
 	PrintBuf(sdf_cmd_head1->out_session_key,sdf_cmd_head1->out_session_key_len);
 
 	sdf_count_session_key *sdf_cmd_head2=(sdf_count_session_key *)malloc(sizeof(sdf_count_session_key));
@@ -117,9 +121,9 @@ void change_key_test()
 	memcpy(sdf_cmd_head2->in_B_pubkey,sdf_cmd_head1->out_B_pubkey,64);
 	memcpy((unsigned char *)&sdf_cmd_head2->in_handle,(unsigned char *)&sdf_cmd_head->out_handle,sizeof(sdf_gen_agreement_par_handle));
 	SDF_GenerateKeyWithECC(&p,&sdf_cmd_head2);
-	printfS("sdf_cmd_head2 session key index=%d\n",sdf_cmd_head2->out_session_key_len);
+	SER_DEBUG("sdf_cmd_head2 session key index=%d\n",sdf_cmd_head2->out_session_key_len);
 	PrintBuf(sdf_cmd_head2->out_session_key,sdf_cmd_head2->out_session_key_len);
-	printfS("key_test OK ! \n");
+	SER_DEBUG("key_test OK ! \n");
 
 	SDF_CloseDevice(&p);
 	free_point(p);
@@ -141,11 +145,11 @@ void *test_sm4(void *num)
 	unsigned char *output;
 	unsigned int block_num=2048/16;
 
-	printfS("=======================*((int *)num)=%d=======================\n",*((int *)num));
+	SER_DEBUG("=======================*((int *)num)=%d=======================\n",*((int *)num));
 	input_f[0]=*((int *)num);
 	key[0]=*((int *)num);
 	iv[0]=*((int *)num);
-	printfS("=======================ecb input_f[0]=%d=======================\n",input_f[0]);
+	SER_DEBUG("=======================ecb input_f[0]=%d=======================\n",input_f[0]);
 	//encrypt ecb
 	input = input_f;
 	output= output_f;
@@ -171,12 +175,12 @@ void *test_sm4(void *num)
 	// {
 	// 	if(compare[j]!=input[j])
 	// 	{
-	// 		printfS("ecb error\n");
+	// 		SER_DEBUG("ecb error\n");
 	// 		return NULL;
 	// 	}
 	// }
 
-	// printfS("=======================cbc=======================\n");
+	// SER_DEBUG("=======================cbc=======================\n");
 	// //encrypt cbc
 	// input = input_f;
 	// output= output_f;
@@ -188,14 +192,14 @@ void *test_sm4(void *num)
 	// {
 	// 	if(compare[j]!=input[j])
 	// 	{
-	// 		printfS("cbc error\n");
+	// 		SER_DEBUG("cbc error\n");
 	// 		return NULL;
 	// 	}
 	// }
 	// */
-	// printfS("=======================*((int *)num)=%d=======================\n",*((int *)num));
+	// SER_DEBUG("=======================*((int *)num)=%d=======================\n",*((int *)num));
 	// sm2_test();
-	// sm3_test();
+	sm3_test();
 	// sm4_test();
 
 	return NULL;
@@ -211,7 +215,7 @@ int  sm4_thread_test()
 		int err = pthread_create(&ntid[i],NULL,test_sm4,&i);
 		if(err!=0)
 		{
-			printfS("thread_create Failed\n");
+			SER_DEBUG("thread_create Failed\n");
 			return -1;
 		}
 	}
@@ -233,8 +237,13 @@ int main(void)
 	// }
 	// return 0;
 
-	
+	//sm3_test();
+	// sm2_test();
+	// return 0;
+
+
 	//sm4_test();
+	test_init();
 	socket_epoll();
 	test_init();
 	socket_server_test();

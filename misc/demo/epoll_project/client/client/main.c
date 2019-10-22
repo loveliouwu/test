@@ -112,8 +112,8 @@ void *sm3test(void *session_handle)
 {
     int ret = SDR_OK;
     void *session_new;
-    unsigned int data_len = 512;
-    unsigned char data_in[2048] = {0x61,0x62,0x63};
+    unsigned int data_len = test_data_len;
+    unsigned char data_in[4096] = {0x61,0x62,0x63};
     unsigned char data_out[32];
     unsigned int data_out_len;
     //初始化阶段
@@ -354,29 +354,65 @@ void *sign_verify_test(void *session_handle)
     unsigned char sign_data[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
     ECCSignature signature;
     int ret = 0;
-    ret = SDF_GenerateKeyPair_ECC(session_handle,&uiISKIndex,pswd,pswd_len);
-    if(ret != SDR_OK)
+
+    struct timeval start,end;
+	double speed;
+    int loop_times = test_times;
+    int send_len = test_data_len;
+    int i = 0;
+
+    gettimeofday( &start, NULL );
+    for(i = 0;i<3;i++)
     {
-        printf("GenerateKeyPair error!\n");
-        exit(-1);
+        ret = SDF_GenerateKeyPair_ECC(session_handle,&uiISKIndex,pswd,pswd_len);
+        if(ret != SDR_OK)
+        {
+            printf("GenerateKeyPair error! %d\n",i);
+            exit(-1);
+        }
+    }
+    gettimeofday( &end, NULL );
+    int timeuse = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; 
+    printf("+++++++++sm2_generate_key_pair time:%d us\n", timeuse);
+    
+    gettimeofday( &start, NULL );
+
+    for(i = 0;i<loop_times;i++)
+    {
+        ret = SDF_Sign_ECC(session_handle,uiISKIndex,pswd,pswd_len,sign_data,32,&signature);
+        if(ret != SDR_OK)
+        {
+            printf("sign error!\n");
+            exit(-1);
+        }
     }
 
-    ret = SDF_Sign_ECC(session_handle,uiISKIndex,pswd,pswd_len,sign_data,32,&signature);
-    if(ret != SDR_OK)
-    {
-        printf("sign error!\n");
-        exit(-1);
-    }
+    gettimeofday( &end, NULL );
+    timeuse = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; 
+    printf("+++++++++sm2_sign time:%d us\n", timeuse);
 
     ECCrefPublicKey pubkey;
     unsigned char data[64];
     unsigned int data_len = 16;
-    ret = SDF_ExtVerify_ECC(session_handle,&pubkey,data,data_len,&signature);
-    if(ret != SDR_OK)
+    loop_times = 10000;
+    gettimeofday( &start, NULL );
+    for(i = 0;i<loop_times;i++)
     {
-        printf("verify error!\n");
-        exit(-1);
+        ret = SDF_ExtVerify_ECC(session_handle,&pubkey,data,data_len,&signature);
+        if(ret != SDR_OK)
+        {
+            printf("verify error! %x\n",ret);
+            exit(-1);
+        }
+        else
+        {
+            printf("times %d\n",i);
+        }
+        
     }
+    gettimeofday( &end, NULL );
+    timeuse = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; 
+    printf("+++++++++sm2_verify time:%d us\n", timeuse);
 
     ret = SDF_DeleteKeyPair_ECC(session_handle,&uiISKIndex,pswd,pswd_len);
     if(ret != SDR_OK)
@@ -388,12 +424,13 @@ void *sign_verify_test(void *session_handle)
 
 void *thread_test(void *psession_handle)
 {
-    sm4_test(psession_handle);
-    //sm3test(psession_handle);
+    //sm4_test(psession_handle);
+    //sign_verify_test(psession_handle);
+    sm3test(psession_handle);
     //pthread_exit(0);
 }
 
-void main()
+int main()
 {
     int i = 0;
     int ret = 0;
@@ -419,12 +456,14 @@ void main()
     } 
 
     //sm3test(psession_handle[1]);
+    // sign_verify_test(psession_handle[1]);
+    // sm4_test(psession_handle[1]);
+    // return 0;
 
     for(i=1;i<SOCKET_NUM;i++)
     {
         pthread_create(&thread_id[i],NULL,thread_test,psession_handle[i]);
     }  
-
     for(i=1;i<SOCKET_NUM;i++)
     {
         pthread_join(thread_id[i],NULL);

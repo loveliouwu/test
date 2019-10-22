@@ -1,6 +1,18 @@
-
 #ifndef INCLUDE_SDF_H_
 #define INCLUDE_SDF_H_
+
+
+//#define DEBUG_LOG
+#ifdef DEBUG_LOG
+#define SER_DEBUG(fmt,arg...)        printf("[DEBUG %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__,##arg)
+#else 
+#define SER_DEBUG(fmt,arg...)        
+#endif
+#define SER_ERROR(fmt,arg...)        printf("[ERR %s:%s:%d]:"fmt,__FILE__,__func__,__LINE__, ##arg)
+
+
+
+
 
 #define SDF_ALG_SERVER_MAX_PACKET 8*1024
 extern unsigned int sdf_device_num;

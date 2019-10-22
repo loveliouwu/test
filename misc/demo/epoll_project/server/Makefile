@@ -8,4 +8,4 @@ INC := $(wildcard ./include)
 CC      = gcc
 TARGET	= main.o
 all:$(OBJS)
-	$(CC) -I$(INC) -g  $(SRC)  -o $(TARGET)  -lpthread -L /usr/lib  -lmiracl -L/home/zyxx/openssl/openssl-1.0.1c-arm -lcrypto -lssl 
+	$(CC) -I$(INC) -g  $(SRC)  -o $(TARGET)  -lpthread -L /usr/lib  -lmiracl -L/usr/local/ssl -lcrypto -lssl -ldl

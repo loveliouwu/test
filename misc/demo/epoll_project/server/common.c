@@ -57,20 +57,12 @@ void free_point(void *p)
 void sdf_rev_cmd(int sockfd,char* data,int len)
 {
 	xmit_protocol *rev_xmit_protocol;
-	//rev_xmit_protocol=malloc(SOCKET_MAX_DATA_LEN);
 	rev_xmit_protocol = (xmit_protocol *)data;
 	xmit_protocol *sdf_cmd_data=(xmit_protocol *)((unsigned char*)rev_xmit_protocol+sizeof(packet_head));
-	//memcpy(rev_xmit_protocol,data,len);
 
-	//printfS("len=%d\n",len);
-	//printfS("rev_xmit_protocol->len=%d\n",rev_xmit_protocol->len);
-	//PrintBuf((unsigned char *)rev_xmit_protocol,rev_xmit_protocol->len);
 	if(rev_xmit_protocol->len!=len)
 	{
 		printf("rev_xmit_protocol->len!=len\n");
-		//send(sockfd, rev_xmit_protocol, rev_xmit_protocol->len, 0);
-		//printfS("send success\n");
-		//free_point(rev_xmit_protocol);
 		return;
 	}
 	switch(rev_xmit_protocol->sdf_cmd)
@@ -167,62 +159,7 @@ void sdf_rev_cmd(int sockfd,char* data,int len)
 			}
 			
 		}
-		
-		
 	}
-//分包发送
-	// int send_ready = 0;
-	// int packet_len = 0;
-	// int offset = 0;
-	// int total_len = rev_xmit_protocol->len;
-	// while(offset < total_len)
-	// {
-	// 	if(total_len - offset >= MAX_PACKET_LEN)
-	// 	{
-	// 		packet_len = MAX_PACKET_LEN;
-	// 	}
-	// 	else
-	// 	{
-	// 		packet_len = total_len - offset;
-	// 	}
-	// 	send_ready = send(sockfd, (unsigned char *)rev_xmit_protocol + offset, packet_len, 0);
-	// 	offset += send_ready;
-	// }
-	// if(rev_xmit_protocol->len != offset)
-	// {
-	// 	printf(" fd=%d,send->len=%d   error\n",sockfd,offset);
-	// }
-//先发送包头
-	/*int semd_len=send(sockfd, (unsigned char *)rev_xmit_protocol, sizeof(packet_head), 0);
-	if(sizeof(packet_head)!=semd_len)
-	{
-		printf("head fd=%d,send->len=%d   error\n",sockfd,semd_len);
-	}
-	int send_len=1024,offset=0;
-	int len_send=rev_xmit_protocol->len-sizeof(packet_head);
-	while(len_send>send_len)
-	{
-		semd_len=send(sockfd, (unsigned char *)rev_xmit_protocol+sizeof(packet_head)+offset,send_len, 0);
-		if(send_len!=semd_len)
-		{
-			printf("mid fd=%d,send->len=%d   error\n",sockfd,semd_len);
-		}
-		offset+=semd_len;
-		len_send-=send_len;
-	}
-	if(len_send>0)
-	{
-		semd_len=send(sockfd, (unsigned char *)rev_xmit_protocol+sizeof(packet_head)+offset,len_send, 0);
-		if(len_send!=semd_len)
-		{
-			printf("last fd=%d,send->len=%d   error\n",sockfd,semd_len);
-		}
-	}*/
-	printfS("fd=%d,send->len=%d\n",sockfd,send_len);
-	//PrintBuf((unsigned char *)rev_xmit_protocol,rev_xmit_protocol->len);
-	//printfS("send success\n");
-
-	//free_point(rev_xmit_protocol);
 }
 
 void *sdf_rev(void *num)

@@ -10,7 +10,7 @@
 
 extern unsigned char sdf_device_key[16];
 #define sdf_max_session_key_len 128
-#define sdf_sym_key_file_name "./src/alg.bin"//"/home/jjn/Desktop/新建文件.bin"
+#define sdf_sym_key_file_name "./alg.bin"//"/home/jjn/Desktop/新建文件.bin"
 
 typedef enum sdf_key_type_
 {
