@@ -1,5 +1,18 @@
 #
 
+####几个pip安装源以解决install慢
+http://pypi.douban.com/ 豆瓣 
+http://pypi.hustunique.com/ 华中理工大学 
+http://pypi.sdutlinux.org/ 山东理工大学 
+http://pypi.mirrors.ustc.edu.cn/ 中国科学技术大学 
+http://mirrors.aliyun.com/pypi/simple/ 阿里云 
+https://pypi.tuna.tsinghua.edu.cn/simple/ 清华大学
+
+1.临时使用：
+可以使用pip时添加参数 -i[url]，如：
+
+pip install -i http://pypi.douban.com/simple/ django
+
 - 语法创建链表
 ```
 f = [ i for i in range(0,10) ]
