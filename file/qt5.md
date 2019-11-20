@@ -101,3 +101,5 @@ str = QString::number(num1);
 QDoubleSpinBox 用于浮点数的显示和输入，可以设置显示小数位数，也可以设置显示的前缀和后缀。
 
 
+
+####自定义信号和槽

@@ -89,7 +89,7 @@ $1 = 5050
 - 忽略断点
   
 ```
-设置断点以后，可以忽略断点，命令是`ignore hnum count`意思是借来来count次编号为hnum的断点都不会让程序中断，只有当第count+1次断点出发才会让程序中断。
+设置断点以后，可以忽略断点，命令是`ignore hnum count`意思是接下来count次编号为hnum的断点都不会让程序中断，只有当第count+1次断点出发才会让程序中断。
 
 (gdb) b 10 
 breakpoint 1 at 0x4004e3: file a.c line 10

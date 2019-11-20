@@ -5,3 +5,6 @@ Qt开源网站：
     https://code.qt.io/cgit/
 Qt在线参考文档：
     http://www.kuqin.com/qtdocument/index.html
+    
+博客：
+https://blog.csdn.net/lmhuanying1012/article/list/24?
