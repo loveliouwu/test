@@ -87,3 +87,21 @@ if __name__ == '__main__':
 ```
 
 
+####禁止函数修改列表
+1.传递列表的副本
+function(list_name[:])
+切片表示法[:]创建列表的副本
+
+####传递任意数量的实参
+def function(*args):
+    print(args)
+
+####通过as给函数或模块指定别名
+from pizza import make_pizza as mp
+
+import pizza as food_pizza
+
+####倒入模块中所有函数
+from os import *
+
+
