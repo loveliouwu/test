@@ -1,4 +1,7 @@
-
+#define  MYSQADDR				"localhost"
+#define	 MYSQLUSER				"test"
+#define  MYSQLPW				"test"	
+#define	 DATABASENAME			"TEST"
 
 BOOL Init()
 {
