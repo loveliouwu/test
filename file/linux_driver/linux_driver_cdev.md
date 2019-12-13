@@ -10,9 +10,8 @@ register_chrdev函数的major参数如果等于0，则表示采用系统动态�
 
     int unregister_chrdev(unsigned int major, const char *name); 
 
-例1.3  register_chrdev注册字符设备实例
+register_chrdev注册字符设备实例
 
-代码见光盘\src\1drivermodel\1-3register_chrdev。核心代码如下所示：
 
     static unsigned char simple_inc=0;  
     static unsigned char demoBuffer[256];  
@@ -152,8 +151,6 @@ alloc_chrdev_region申请一个动态主设备号，并申请一系列次设备�
     void unregister_chrdev_region(dev_t from,unsigned count) ; 
 
 例1.4  cdev_add注册字符设备实例
-
-代码见光盘\src\1drivermodel\1-4cdev。核心代码如下所示：
 
     struct file_operations simple_fops = {  
         .owner =    THIS_MODULE,  
