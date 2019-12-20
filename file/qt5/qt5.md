@@ -103,3 +103,45 @@ QDoubleSpinBox 用于浮点数的显示和输入，可以设置显示小数位�
 
 
 ####自定义信号和槽
+
+
+- 布局管理器
+把组建放入一种布局中，布局由专门的布局管理器进行管理
+>
+	{
+    QWidget *newwind = new QWidget();//设置新窗口
+
+    //step 1
+    QSpinBox *spinbox = new QSpinBox(newwind);//添加spinbox
+    spinbox->setRange(0,100);
+    QSlider *slider = new QSlider(Qt::Horizontal,newwind);//添加slider
+    slider->setRange(0,100);
+    QHBoxLayout *layout = new QHBoxLayout();//新建一个布局
+    layout->addWidget(spinbox,0);
+    layout->addSpacing(1);
+    layout->addWidget(slider,0);
+
+    //ste2 在布局中添加布局
+    QSpinBox *spinbox1 = new QSpinBox(newwind);//添加spinbox1
+    spinbox1->setRange(0,100);
+    QSlider *slider1 = new QSlider(Qt::Horizontal,newwind);//添加slider1
+    slider1->setRange(0,100);
+    QVBoxLayout *layout_vb = new QVBoxLayout();
+    QPushButton *button = new QPushButton(tr("Push"),newwind);
+    layout_vb->addWidget(button);
+    layout_vb->addWidget(spinbox1);//添加组件到布局中
+    layout_vb->addWidget(slider1);
+    layout->addLayout(layout_vb);//将第二个布局加入到第一个布局中
+
+    newwind->setLayout(layout);//将布局1添加进新窗口中
+    newwind->show();//显示
+
+}
+
+- 菜单栏、工具栏、状态栏
+>
+	QMenu *file = menuBar()->addMenu(tr("&File"));
+	QAction *open = new QAction(tr("*Open..."));
+	file->addAction(open);
+	使用`menuBar`函数，Qt为我们创建了一个菜单栏，`menuBar`是`QMainWindow`提供的函数，这个函数会返回窗口的菜单栏，如果没有菜单栏会新创建一个。
+	Qt中表示菜单的类是`QMenuBar`,代表的是窗口最上方的一条菜单栏，我们使用`addMeun()`函数为其添加菜单，我们传进一个字符串作为参数，但是Qt把它作为新创建的菜单的文本显示出来，我们可以把`QAction`添加到这个菜单上面也就是`addAction()`
