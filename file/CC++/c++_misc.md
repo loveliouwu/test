@@ -33,3 +33,57 @@
 	    return 0;
 	}
 ```
+
+
+- STL list小计 删除嵌套链表
+```
+typedef struct session {
+	int a;
+}*pSession;
+
+typedef struct sessionkey {
+	int b;
+}*pSessionKey;
+
+typedef list<pSession> listSession;
+typedef list<pSessionKey> listSessionKey;
+typedef struct VHSMst {					//虚拟机数据结构，通过客户端提供的指针访问时，需要先验证Rodam
+	unsigned long	Rodam;					//必须放在首部
+	void* VHSMDevice;				//虚拟密码机对象
+	listSession		MySessionList;
+	listSessionKey		MySessionKeyList;
+}VHSMst, * pVHSMst;
+
+
+typedef list<VHSMst> List;
+List vlist;
+int main()
+{
+	VHSMst list1;
+	pSession pse;
+	pSessionKey pskey;
+	list1.VHSMDevice = nullptr;
+	list1.Rodam = 2;
+	vlist.push_back(list1);
+
+	VHSMst list2;
+	list2 = vlist.back();
+	//List.pop_back();
+	list1.VHSMDevice = nullptr;
+	list1.Rodam = 2;
+	List::iterator ite;
+	for (ite = vlist.begin(); ite != vlist.end(); ite++)
+	{
+		VHSMst tmp_list = *ite;
+		if (tmp_list.Rodam == (unsigned long)2)
+			ite = vlist.erase(ite);
+	}
+	//vlist.remove(list1);
+	printf("%d\n", list2.Rodam);
+
+	int c;
+	scanf("%c",&c);
+
+	return 0;
+}
+```
