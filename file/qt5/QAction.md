@@ -19,4 +19,8 @@
 
     connect(openAction, &QAction::triggered, this, &MainWindow::open);//信号槽
 
+    setEnabled();//使能控件，false时控件不能被点击
+
+    
+
 
