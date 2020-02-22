@@ -1,3 +1,54 @@
+- 连接不上github时可以通过修改hosts文件
+windows：C:\Windows\System32\drivers\etc
+linux:/etc/hosts
+添加：
+192.30.253.112 Build software better, together
+192.30.253.113 Build software better, together
+151.101.185.194 github.global.ssl.fastly.net
+151.101.13.194 github.global.ssl.fastly.net
+151.101.12.133 assets-cdn.github.com
+151.101.184.133 assets-cdn.github.com
+
+效果不理想则可以进行下列操作：
+一、确定github网站的ip
+
+打开网址：http://github.com.ipaddress.com/
+
+192.30.253.112 github.com
+
+192.30.253.113 github.com
+
+二、确定域名ip
+
+打开网址：http://github.global.ssl.fastly.net.ipaddress.com/
+
+或者是
+
+151.101.185.194 github.global.ssl.fastly.net
+
+151.101.13.194 github.global.ssl.fastly.net
+
+三、确定静态资源ip
+
+打开网址：http://assets-cdn.github.com.ipaddress.com/
+
+151.101.12.133 assets-cdn.github.com
+
+151.101.184.133 assets-cdn.github.com
+
+四、修改hosts文件
+
+192.30.253.112 Build software better, together
+192.30.253.113 Build software better, together
+151.101.185.194 github.global.ssl.fastly.net
+151.101.13.194 github.global.ssl.fastly.net
+151.101.12.133 assets-cdn.github.com
+151.101.184.133 assets-cdn.github.com
+
+
+
+
+
 添加sshkey到git
     1.生成key
         ssh-keygen -t rsa -C "youremail@example.com"
