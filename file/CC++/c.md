@@ -17,3 +17,22 @@ PRINT( 9 );
 printf( "token" "9" " = %d", token9 );
 注意到在这个例子中，PRINT(9);中的这个”9”被原封不动的当成了一个字符串，与”token”连接在了一起，从而成为了token9。而#n也被”9”所替代。
 可想而知，上面程序运行的结果就是在屏幕上打印出token9=9
+
+
+#### 软中断
+
+```C
+void time_out(int sig)
+{
+        signal(SIGALRM, time_out);
+        run = 0;
+}
+signal(SIGALRM, time_out);
+printf("Now test 20 seconds encrypt ...\n");
+i = 0;
+alarm(20);
+for (run = 1; run; i++)
+        SM3((unsigned char *)"12324524alsdkf", 12, digest);
+
+printf("SM3 digest times in 20 seconds: [%ld]\n", i);
+```
