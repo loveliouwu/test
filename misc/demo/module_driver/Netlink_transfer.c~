@@ -1,8 +1,0 @@
-#include<linux/kthread.h>
-#include<net/netlink.h>
-#include<sock.h>
-
-
-struct sock *netlink_sock = NULL;//netlink的sock数据借口
-
-

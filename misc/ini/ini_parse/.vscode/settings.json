@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "*.def": "cpp",
-        "ini_parse.h": "c",
-        "stdlib.h": "c"
-    }
-}
