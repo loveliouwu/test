@@ -1,0 +1,1 @@
+- VNC由server和client两端组成  
