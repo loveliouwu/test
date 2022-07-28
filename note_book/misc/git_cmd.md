@@ -121,19 +121,3 @@ stash ：
     4.git show v0.9 查看标签信息
     5.git tag -a v0.1 -m "version 0.1 msg" 1094adb
         创建标签并添加文字说明　－ａ指定标签名
-
-
-### git登陆github 
-`
-step 1: 
-    ssh-keygen -t rsa -C "youremail@example.com"
-    添加pubkey到github网站
-step 2:
-    git config --global user.email "youremail@example.com"  
-    git config --global user.name "yourname"  
-    ssh -T git@github.com  //测试  
-
-step 3: 
-    git clone xxx 
-    
-`
