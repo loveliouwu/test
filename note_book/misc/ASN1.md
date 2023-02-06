@@ -1,5 +1,7 @@
 ### DER(Distinguished Encoding Rules 可辨别编码规则)
-ASN.1对象的编码是ASN.1标准的重要部分，通常采用的是BER，而DER则是其的一个子集。
+ASN.1本身只定义了表示信息的抽象句法，但是没有限定其编码的方法。各种ASN.1编码规则提供了由ASN.1描述其抽象句法的数据的值的传送语法（具体表达）。标准的ASN.1编码规则有基本编码规则（BER，Basic Encoding Rules）、规范编码规则（CER，Canonical Encoding Rules）、唯一编码规则（DER，Distinguished Encoding Rules）、压缩编码规则（PER，Packed Encoding Rules）和XML编码规则（XER，XML Encoding Rules）。为了使ASN.1能够描述一些原先没有使用ASN.1定义，因此不适用上述任一编码规则的数据传输和表示的应用和协议，另外制订了ECN来扩展ASN.1的编码形式。ECN可以提供非常灵活的表明方法，但还没有得到普遍应用   
+
+ASN.1与特定的ASN.1编码规则一起通过使用独立于计算机架构和编程语言的方法来描述数据结构，为结构化数据的交互提供了手段，特别是在网络环境的应用程序
 
 - 一个标准的ASN.1编码对象有四个域：对象标识域、数据长度域、数据域、结束标志（可选，长度不可知情况下需要）
 
@@ -27,7 +29,23 @@ ASN.1对象的编码是ASN.1标准的重要部分，通常采用的是BER，而D
 - OBJECT IDENTIFIER / RELATIVE-OID : 一个实体的标识符
 - EXTERNAL, EMBEDDEDPDV : 表示层上下文交换类型  
 - XXXXString : 各种字符串  
+    - NumericString:
+    - PrintableString:
+    - VisibleString:
+    - ISO64String:
+    - IA5String:
+    - TeletexString:
+    - T61String:
+    - VideotexString:
+    - GraphiteString:
+    - GeneralString:
+    - UniversalString:
+    - BMPString:
+    - UTF8String:
 - CHARACTER STRING ： 允许为字符串协商一个明确的字符表  
+- UTCTime、GeneralizedTime : 日期
+
+
 
 ### 组合类型  
 - CHOICE: 选择类型，该字段可能有多重不同的类型来表示  
@@ -35,6 +53,55 @@ ASN.1对象的编码是ASN.1标准的重要部分，通常采用的是BER，而D
 - SET：无序集合  
 - SEQUENCEOF: 由相同类型的值组成一个有序的集合  
 - SETOF： 无序集合，相同类型的值
+
+
+### 类型定义 
+`<新类型的名字> ::= <类型描述>`  
+
+- 注： `新类型的名字`是一个以**大写**字母**开头**的**标识符**，  `类型描述`是基于内建类型或在其他地方定义的类型  
+```asn
+Married ::= BOOLEAN
+Age ::= INTEGER
+Picture ::= BIT STRING
+Form :: SEQUENCE
+{
+    name  PrintableString,
+    age  Age,
+    married Married,
+    marriage-certificate Picture OPTIONAL
+}
+
+Payment-method ::= CHOICE
+{
+    check Check-number
+    credit-card SEQUENCE
+    {
+        number Card-number,
+        credit-card SEQUENCE
+        {
+            number Card-number,
+            expiry-date Date
+        }
+
+    }
+}
+```
+**注意在`SEQUENCE`和`SET`等定义中，最后一个成员结尾没有逗号','**  
+
+- 为了准确描述一个类型，我们需要对值的集合进行一定的限制，这用到了`子类型约束`，在类型之后用圆括号进行标识。   
+如：  
+```asn
+Lottery-number ::= INTERGER(1..49)
+Lotter-draw ::= SEQUENCE SIZE(6) OF Lottery-number  
+Upper-case-word ::= IA5String(FROM("A".."Z"))
+Phone-number ::= NumericString(FROM("0".."9"))(SIZE(10))
+```
+
+### 值定义  
+`<新的值名字><该值的类型> ::= <值描述>`  
+- 新的值的名字是以小写字母开头的标识符  
+- 值的类型可以是一个类型的名字， 也可以是类型描述  
+- 值描述 是基于整数、字符串、标识符的组合。
 
 
 
