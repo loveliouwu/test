@@ -24,13 +24,13 @@ then
 	echo "a>b"
 else
 	echo "a<b"
-if
+fi
 
 
 if test $"a" == "123"
 then
 	echo "a is ${a}
-if
+fi
 
 #if...elif...else...fi
 
