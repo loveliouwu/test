@@ -32,4 +32,29 @@ do
 	echo "$RANDOM"
 done
 
+```  
+
+
+```shell 
+echo 当前传入的参数个数  $#  
+echo 分别为: 
+let index=0
+for arg in $*
+do
+        echo "$index:$arg"
+        let index++
+done
+
+for i
+do
+        echo $1
+        shift
+done
+
+set aa bb cc dd ee ff
+echo $*
+echo $@
+echo $#
+
+
 ```

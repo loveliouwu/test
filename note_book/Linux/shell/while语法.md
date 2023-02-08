@@ -5,6 +5,23 @@ do
     statements
 done 
 
+
+
+### 使用break跳出循环   
+break是可以带参数的，比如`break 2`表示跳出两层循环  
+```shell
+while true
+do 
+	while i < 10
+	do 
+		echo $i 
+		break 2  跳出两层循环  
+	done
+dnoe
+
+```
+
+
 ```shell
 !/usr/bin/bash
 i=1

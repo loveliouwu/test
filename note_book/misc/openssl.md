@@ -57,3 +57,34 @@ OSSL_LIB_CTX *OSSL_LIB_CTX_set0_default(OSSL_LIB_CTX *ctx);
 一个操作可以是加密或解密，密钥派生，MAC计算，签名验签等。  
 provider提供一个初始化函数，作为**OSSL_DISPATH**中的一个基本函数。
 
+
+
+### `OSSL_OP_`开头的宏，用数字来表示操作   
+当前可用的操作包括 ： 
+- 摘要  
+	方法对象：EVP_MD；
+	编号：OSSL_OP_DIGEST
+- 对称密码  
+	方法对象：EVP_CIPHER
+	编号：OSSL_OP_CIPHER  
+- 消息验证码 MAC 
+	EVP_MAC
+	OSSL_OP_MAC 
+- 密钥派生函数 KDF  
+	EVP_KDF 
+	OSSL_OP_KDF  
+- 密钥交换   
+	EVP_KEYEXCH  
+	OSSL_OP_KEYEXCH  
+- 非对称密码  
+	EVP_ASYM_CIPHER  
+	OSSL_OP_ASYM_CIPHER   
+- 非对称密钥封装  
+	EVP_KEM  
+	OSSL_OP_KEM   
+- 编码  
+	OSSL_ENCODER  
+	OSSL_OP_ENCODER  
+	
+	
+	
