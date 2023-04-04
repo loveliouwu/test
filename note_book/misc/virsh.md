@@ -99,6 +99,60 @@ virsh start ubu3
 
 
 
+### virsh 创建 macvtap网络   
+1、创建虚拟机时选择macvtap网络类型，此时虚拟机xml的网络描述为：  
+```xml
+<interface type='direct'>
+  <mac address='52:54:00:13:95:c0'/>
+      <source dev='eno2' mode='bridge'/>
+      <model type='virtio'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+</interface>
+```  
 
+2、创建了网络之后，启动虚拟机，如果该网卡没有自动启动， 则：  
+```shell
+# 临时启动和配置
+ifconfig -a #查看该网卡的名称 如 enp7s0 
+ifconfig enp7s0 up  #启动该网卡   
+ifconfig enp7s0 192.168.0.166  #设置ip  
+
+# 修改该网卡为自动启动
+sudo vim /etc/netplan/00xxxxxxx.yaml  
+将：
+network:
+  ethernets:
+    enp1s0:
+      dhcp4: true
+  version: 2
+修改为：
+network:
+  ethernets:
+    enp1s0:
+      dhcp4: true
+    enp7s0:
+      dhcp4: true
+  version: 2
+
+# 应用该配置  
+sudo netplan apply
+
+```
+
+
+3、通过复制cow2文件和修改xml创建新的虚拟机的步骤   
+```md
+1、 复制cow2文件和xml文件
+2、修改xml文件，具体包括 虚拟机名称、UUID、网络MAC、启动的硬盘路径（改为复制的cow2文件）  
+3、定义虚拟机`sudo virsh define new.xml`
+4、创建完成，启动虚拟机
+
+注：
+如果要删除该虚拟机：`sudo virsh undefine new`
+如果虚拟机shutdown关不了，则执行`sudo virsh destroy new`
+如果需要编辑虚拟机`sudo virsh edit new`
+
+
+```
 
 
