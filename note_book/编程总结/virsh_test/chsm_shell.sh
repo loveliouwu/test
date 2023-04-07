@@ -57,7 +57,7 @@ Usage: ${0} [ Options ]
 --getgw                     :get chsm's gateway
 
 --setip                     :set chsm's ip
-                            "--setip 192.168.10.10"
+                            "--setip -n eno1 -i 192.168.10.10 -m 255.255.255.0 -g 192.168.10.1"
 
 --vsmlist                   :list all vsm's uuid and name
 --vsmstate                  :list vsm's info
@@ -104,12 +104,12 @@ do
 		;;
 	--getip)
         echo "get ip:"
-	    ifconfig ${CHSM_INTERFACE_NAME} | grep inet | awk -F' ' 'NR==1  {print $2}'
+	    ifconfig ${CHSM_INTERFACE_NAME} | grep -w inet | awk -F' ' 'NR==1  {print $2}'
         shift
 		;;
 	--getnetmask)
         echo "get netmask:"
-	    ifconfig ${CHSM_INTERFACE_NAME} | grep inet | awk -F' ' 'NR==1  {print $4}'
+	    ifconfig ${CHSM_INTERFACE_NAME} | grep -w inet | awk -F' ' 'NR==1  {print $4}'
         shift
 		;;
 	--getgw)
@@ -130,24 +130,23 @@ do
     
 	--setip | -ip)
 		shift
-        while getopts "n:i:m:g:" opt; do
-            echo "opt = ${opt}"
+        while getopts "n:i:g:m:" opt; do
             case $opt in 
             n)
                 NAME=${OPTARG}
-                echo "name:${NAME}"
+                echo "name:     ${NAME}"
                 ;;
             i)
                 IP=${OPTARG}
-                echo "ip:${IP}"
+                echo "ip:       ${IP}"
                 ;;
             m)
-                NETMASK=${OPTARG}
-                echo "netmask:${NETMASK}"
+                MASK=${OPTARG}
+                echo "mask:     ${MASK}"
                 ;;
             g)
-                GATE=${OPTARG}
-                echo "gateway:${GATE}"
+                GW=${OPTARG}
+                echo "gateway:  ${GW}"
                 ;;
             :)
                 ;;
@@ -156,18 +155,48 @@ do
                 ;;
             esac
         done
-        if [ -z "${IP}" ] && [ -z "${NETMASK}"] && [ -z "${GATE}" ] && [ -z "${NETMASK}" ]; then
-            echo "error!  -n: name  -i: ip_address  -m: netmask  -g: gateway"
+        if [ -z "${IP}" ] && [ -z "${GW}" ] && [ -z "${NAME}" ] && [ -z "${MASK}" ]; then
+            echo "error!  -n: name  -i: ip_address  -g: gateway -m netmask"
             exit 1
         fi
 
-        net_uuid=`nmcli connection show | grep ${NAME} | awk  -F' '  '{print $2}'`
-        echo "uuid:${net_uuid}"
-        sudo ifconfig ${NAME} netmask ${NETMASK}
-        nmcli connection modify uuid ${net_uuid} ipv4.addresses ${IP} ipv4.gateway ${GATE}
-        echo "up ${net_uuid}"
-        nmcli connection up uuid ${net_uuid}
-        ifconfig | grep -w inet | awk -F' ' 'NR==1  {print $2}'
+
+        # 方式1 通过nmcli命令修改，但是重启后实效
+            # net_uuid=`nmcli connection show | grep ${NAME} | awk  -F' '  '{print $2}'`
+            # echo "uuid:${net_uuid}"
+            # nmcli connection modify uuid ${net_uuid} ipv4.addresses ${IP} ipv4.gateway ${GW}
+            # echo "up ${net_uuid}"
+            # nmcli connection up uuid ${net_uuid}
+            # ifconfig | grep -w inet | awk -F' ' 'NR==1  {print $2}'
+
+        # 方式2 修改 /etc/network/interfaces文件   
+        # 例如： 
+            # auto eno1
+            # iface eno1 inet static  
+            # address 192.168.16.1
+            # netmask 255.255.255.0
+            # gateway 192.168.16.16
+            # dns-nameservers 8.8.8.8 
+        # sudo cat /etc/network/interfaces | grep -A 4 'eno1'  #打印eno1下面的4行
+        # 获取当前的文件内容。并解析对应的值
+        CUR_INFO=`sudo cat /etc/network/interfaces | grep -A 4 ${NAME}`
+        # echo "${CUR_INFO}"
+        CUR_IP=`echo ${CUR_INFO} | grep -o "address.*" | awk -F' ' '{print $2}'`
+        CUR_MASK=`echo ${CUR_INFO} | grep -o "netmask.*" | awk -F' ' '{print $2}'`
+        CUR_GW=`echo ${CUR_INFO} | grep -o "gateway.*" | awk -F' ' '{print $2}'`
+        CUR_DNS=`echo ${CUR_INFO} | grep -o "dns-nameservers.*" | awk -F' ' '{print $2}'`
+        echo "current ip:   ${CUR_IP}"
+        echo "current mask: ${CUR_MASK}"
+        echo "current gw:   ${CUR_GW}"
+        echo "current dns:  ${CUR_DNS}"
+        # 修改文件
+        sudo sed -i "s/address ${CUR_IP}/address ${IP}/g" /etc/network/interfaces
+        sudo sed -i "s/netmask ${CUR_MASK}/netmask ${MASK}/g" /etc/network/interfaces
+        sudo sed -i "s/gateway ${CUR_GW}/gateway ${GW}/g" /etc/network/interfaces
+        sudo service networking restart  #重启网络生效
+        ;;
+    --setdns)
+        
         ;;
     --vsmlist)
         sudo virsh list --all --uuid --name   #显示所有虚拟机的UUID和名字

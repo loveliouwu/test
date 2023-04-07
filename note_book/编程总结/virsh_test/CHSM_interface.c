@@ -269,15 +269,13 @@ int CHSM_SetNetworks(char * name, char *ip, char *mask, char *gateway)
         FILE *fp;
         char cmd[128] = {0};
         char buffer[512] ={0};
-        sprintf(cmd,"./chsm_");
+        sprintf(cmd,"sudo bash ./%s --setip -n %s -i %s -m %s -g %s", CSHM_SH,name,ip,mask,gateway);
 
-        fp = popen("./chsm_backup.sh  --set", "r");
+        fp = popen(cmd, "r");
 
         while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-            // DEBUG("%s\n", buffer);
+            DEBUG("%s\n", buffer);
         }
-        DEBUG("CHSM_BackUpData get packup file name: %s\n",buffer);
-
         pclose(fp);
         return 0;
     }
