@@ -156,3 +156,27 @@ sudo netplan apply
 ```
 
 
+
+### 通过virt-clone 克隆虚拟机  
+`sudo virt-clone --original ubu1 --name ubu3 --auto-clone`
+
+```txt
+Options（一些基本的选项）：
+--version：查看版本
+-h，--help：查看帮助信息
+--connect=URI：连接到虚拟机管理程序 libvirt 的URI
+
+General Option（一般选项）：
+-o ORIGINAL_GUEST, --original=ORIGINAL_GUEST：原来的虚拟机名称
+-n NEW_NAME, --name=NEW_NAME：新的虚拟机名称
+--auto-clone：从原来的虚拟机配置自动生成克隆名称和存储路径。
+-u NEW_UUID, --uuid=NEW_UUID：克隆虚拟机的新的UUID，默认值是一个随机生成的UUID
+
+Storage Configuration（存储配置）：
+-f NEW_DISKFILE, --file=NEW_DISKFILE：指定新的虚拟机磁盘文件
+--force-copy=TARGET：强制复制设备
+--nonsparse：不使用稀疏文件复制磁盘映像
+
+Networking Configuration:（网络配置）
+-m NEW_MAC, --mac=NEW_MAC：设置一个新的mac地址，默认是一个随机的mac
+```
