@@ -207,7 +207,6 @@ do
         shift
         ;;
 	--getvsmnetflow)
-        #FIXME  this is not working, all vsm are display a same value
 		INTERFACE_MAC=`sudo virsh  domiflist --domain $2 | grep ${VSM_INTERFACE_TYPE} | awk -F' ' '{print $5}'`
 		CUR_RX_BYTES=`sudo virsh domifstat --domain $2 --interface ${INTERFACE_MAC} | grep -w rx_bytes | awk -F' ' '{print $3}'`
         echo current rx_bytes=${CUR_RX_BYTES}
