@@ -91,11 +91,28 @@ virsh start ubu3
 3、virsh net-destroy default
 4、virsh net-start default  
 5、重新启动虚拟机，发现修改的ip已经生效   
+6、dhcp 地址的分配情况会记录到这个文件中 /var/lib/dhcp/dhcpd.leases
 
 
+### 不重启网卡实现虚拟机网络修改
+```shell
+#宿主机
+sudo virsh net-update --config --live xdyg_network add ip-dhcp-host   "<host mac='52:54:00:01:02:03' name='xyz.example.com' ip='192.168.122.25'/>"
+sudo virsh net-update --config --live xdyg_network modify ip-dhcp-host   "<host mac='52:54:00:3f:0a:c1' name='kvm2_name' ip='192.168.122.156'/>"
+
+#虚拟机
+sudo netplan apply #重新申请IP时就会使用新配置的IP
+```
 
 ### 修改虚拟机的xml  
 - virsh edit ubu3
+
+
+### 修改虚拟机的PCI设备
+```shell
+sudo virsh detach-device kvm-test --config --live --file ./pci.xml
+sudo virsh attach-device kvm-test --config --live --file ./pci.xml
+```
 
 
 

@@ -5,10 +5,18 @@
 设置工程名
 `project(my_test_demo)`   
 
+- 检查CMakefiles和执行cmake命令时所在的目录是否是同一个，通常cmake单独创建文件在其中进行编译
+```shell
+if (${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+	message(FATAL_ERROR "Please into another dir to build!")
+endif()
+```
+
+
 - set(SRC_LIST ..)   
 设置变量名 ，即将后面的值赋给前面 ，多个值之间用空格分隔
 可以通过一些常用的变量
-```C
+```shell
 set(SRC_LIST
     ./main.c
     ./func.c
@@ -31,7 +39,7 @@ cmake -D BUILD_TCP_MODE=1 ..
 
 - 生成静态库   add_libary(hello_library STATIC src/hello.cpp)  
 `add_library()`函数用于从某些源文件创建一个库，默认生成在构建文件夹。 modern CMake建议将源文件直接传递给生成的库即hello_library，而不是先把hello.cpp赋给一个变量。
-```
+```shell
 #1 
 project(hello_library)
 add_library(hello_library STATIC src/hello.cpp)
@@ -40,7 +48,7 @@ add_executable(hello_binary src/main.cpp)#指定生成的可执行文件和依�
 target_link_libraries(hello_binary PRIVATE hello_library)#链接可执行文件和静态源
 ```
 例子：   
-```
+```shell
 cmake_minimum_required(VERSION 2.8)
 ##create a library  pe100_cmake_lib.a
 SET(LIB_SRC_LIST 
@@ -81,14 +89,14 @@ target_link_libraries(test.a PRIVATE pe100_cmake_lib)
 
 - 创建静态库 `.so`
 add_library()函数用于从某些源文件创建一个动态库，默认生成在构建文件夹。   
-```cmake
+```shell
 add_library(hello_library SHARED src/hello.cpp)  
 
 ```
 
 
 - 创建别名名称 ALIAS  
-```cmake
+```shell
 #给hello_library取个别名hello::library
 add_library(hello::library ALIAS hello_library)
 add_executable(hello_binary ./src/main.c)
@@ -159,10 +167,26 @@ target_link_libraries(hello_binary PRIVATE hello::library)
 - 设置链接标志: CMAKE_LINKER_FLAGS
 
 
+### 遍历所有源文件
+```shell
+set(sources
+	${src}
+	${src}/stdlib
+	${src}/stdlib/debug
+	${src}/stdlib/memory
+)
+
+foreach(iter ${sources})
+	aux_source_directory(${iter} lib_src)
+endforeach()
+```
+
+### cmake 常用全局变量
+- CMAKE_SYSTEM_NAME ：编译的系统名称
 
 ### cmake demo
 - 根目录CMakeLists.txt
-```cmake 
+```shell 
 cmake_minimum_required(VERSION 2.8)
 project(csf_lib)
 
@@ -236,7 +260,7 @@ set_target_properties(csf_shared_lib PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 ```
 
 - 子目录CMakeLists.txt  
-```cmake
+```shell
 cmake_minimum_required(VERSION 2.8)
 project(asym)
 
@@ -266,7 +290,7 @@ make clean
 
 
 - test_demo2  pe100 CMakeFiles.txt
-```cmake
+```shell
 cmake_minimum_required(VERSION 2.8)
 ##create a library
 SET(LIB_SRC_LIST 
