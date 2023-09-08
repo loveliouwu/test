@@ -25,6 +25,7 @@ Q_PROPERTY(type name
 ```C++
 Class MyTitle : public QObject{
     Q_OBJECT
+    //定义属性 title 以及读写和信号函数
     Q_PROPERTY(QString title READ get_title WRITE set_title NOTIFY title_change_signal)
     //其中get_title和set_title是对该属性赋值和读取的方法
     //title_change_signal是一个信号函数，当QML更改该属性的值时候触发该信号
@@ -36,7 +37,7 @@ public:
     Q_INVOKABLE void sendMsg(QString msg);
     Q_INVOKABLE QString settitle_from_qml(QString title);
 signals:
-    void title_change_signal();
+    void title_change_signal(); //属性 title 的信号函数
 public slots:
     void text_change_slot_calledByQml();  //给QML触发的槽函数
     void text_change_slot_callebByCpp();  //传统的C++槽函数
@@ -89,11 +90,14 @@ Text{
     //自定义定义信号
     signal signal_from_qml_textChanged()
     text: "text's text"
+    //使用默认的槽函数来测试C++函数调用
     onTextChanged: {
         console.log("text's text changed")
+    }
+    onAccepted: {  //Enter 键触发的槽函数
         my_title.sendMsg("send msg to MyTitle");
     }
-    //自定义信号的默认slot
+    //自定义信号的默认slot实现
     onSignal_from_qml_textChanged: { 
         console.log("default slot called")
     }
@@ -102,8 +106,8 @@ Text{
 
 //绑定信号和槽
 Connection{
-    target: my_title
-    //调用方式1
+    target: id_text //目标，指的是发送信号的对象
+    //调用方式1【不推荐】
     //onSignal_from_qml_textChanged : my_title.text_change_slot_calledByQml()
     //调用方式2【推荐】
     function onSignal_from_qml_textChanged() {
@@ -119,7 +123,9 @@ MyTitle{
     Component.onCompleted: {
             title: "set title"
             my_title.settitle_from_qml("my_title!")
-            id_text.onSignal_from_qml_textChanged()  //出发信号
+            id_text.onSignal_from_qml_textChanged()  //发出信号
+            //另外一种绑定qml信号和c++槽函数的方法 格式为 id.signal.connect(id.slot)
+            id_text.signal_from_qml_textChanged.connect(my_title.text_change_slot_calledByQml)
     }
 
 }
