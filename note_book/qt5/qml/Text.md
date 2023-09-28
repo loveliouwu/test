@@ -8,7 +8,11 @@ Text{
     elide: Text.ElideMiddle //设置省略号在文本左边、右、中间。  
     style: Text.Sunken  
     styleColor: '#FF4444'
-    verticalAlignment: Text.Aligntop
+    //verticalAlignment: Text.Aligntop
+    //水平靠左
+    horizontalAlignment: Text.AlignLeft
+    //垂直居中
+    verticalAlignment: Text.AlignVCenter
 }
 ```  
 
